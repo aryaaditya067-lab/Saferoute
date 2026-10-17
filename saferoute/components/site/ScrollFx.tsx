@@ -71,7 +71,7 @@ export function ScrollFx({ sections }: { sections: ScrollSection[] }) {
   return (
     <>
       <div className="pointer-events-none fixed inset-x-0 top-14 z-40 h-0.5" aria-hidden="true">
-        <div ref={barRef} className="h-full origin-left scale-x-0 bg-brand" />
+        <div ref={barRef} className="h-full origin-left scale-x-0 bg-linear-to-r from-[#ffb36b] to-[#f07a2a]" />
       </div>
 
       <nav
@@ -85,18 +85,18 @@ export function ScrollFx({ sections }: { sections: ScrollSection[] }) {
               key={s.id}
               href={`#${s.id}`}
               aria-current={on ? "true" : undefined}
-              className="group flex items-center gap-2.5 py-0.5 text-xs font-medium text-ink-muted hover:text-ink"
+              className="group flex items-center gap-2.5 py-0.5 text-xs font-medium text-white/45 hover:text-white"
             >
               <span
                 className={`whitespace-nowrap transition-opacity duration-300 ${
-                  on ? "text-ink opacity-100" : "opacity-0 group-hover:opacity-100"
+                  on ? "text-white opacity-100" : "opacity-0 group-hover:opacity-100"
                 }`}
               >
                 {s.label}
               </span>
               <i
                 className={`block h-0.5 rounded-full transition-all duration-300 ${
-                  on ? "w-8 bg-brand" : "w-4 bg-ink-muted/50 group-hover:w-6"
+                  on ? "w-8 bg-[#f07a2a]" : "w-4 bg-white/30 group-hover:w-6"
                 }`}
               />
             </a>

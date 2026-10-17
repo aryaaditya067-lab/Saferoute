@@ -1,5 +1,7 @@
+import "@fontsource/instrument-serif/400-italic.css";
+import { GeistSans } from "geist/font/sans";
 import { ArrowRight } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { CityBackdrop } from "@/components/site/CityBackdrop";
@@ -11,6 +13,8 @@ export const metadata: Metadata = {
   description:
     "SafeRoute compares Fastest, Balanced and Safest routes using reported crime areas, street lighting, main roads and nearby help.",
 };
+
+export const viewport: Viewport = { themeColor: "#0b0d12" };
 
 /** One per [data-scene] section, in order; the 3D camera moves between them. */
 const SECTIONS: ScrollSection[] = [
@@ -29,57 +33,78 @@ const FACTORS = [
   { title: "Community reports", body: "Count only after several different people confirm the same spot." },
 ];
 
-/** Bar widths only sketch the idea (how much each route favours speed); they are not measurements. */
+/** Bar widths only sketch the idea (how much each route favours safety); they are not measurements. */
 const ROUTES = [
-  { name: "Fastest", note: "Shortest travel time.", color: "bg-[#8f8a80]", w: 0.55 },
-  { name: "Balanced", note: "A fair trade of time and safety.", color: "bg-[#e0a030]", w: 0.78 },
-  { name: "Safest", note: "Lowest measured risk, even if a little longer.", color: "bg-brand", w: 1 },
+  { name: "Fastest", note: "Shortest travel time.", color: "bg-[#9a958c]", w: 0.55 },
+  { name: "Balanced", note: "A fair trade of time and safety.", color: "bg-[#e9a93a]", w: 0.78 },
+  { name: "Safest", note: "Lowest measured risk, even if a little longer.", color: "bg-[#f08a3c]", w: 1 },
 ];
 
 const TICKER = ["Reported crime areas", "NASA night lights", "Lit main roads", "Police nearby", "Hospitals nearby", "Community reports", "Fastest · Balanced · Safest"];
 
-const card = "rounded-3xl border border-white/70 bg-paper/70 p-6 shadow-float backdrop-blur-xl sm:p-8";
-const eyebrow = "text-xs font-semibold tracking-[0.14em] text-brand-strong uppercase";
-const accent = "font-serif font-normal text-brand italic";
-const section = "relative flex min-h-svh items-center px-4 py-24 sm:px-8 lg:pr-40 lg:pl-16";
+const pad = "px-5 sm:px-8 lg:pl-16 lg:pr-40";
+const section = `relative flex min-h-svh items-center py-28 ${pad}`;
+const card =
+  "rounded-3xl border border-white/10 bg-[#10131a]/75 p-7 shadow-[0_40px_100px_-30px_rgb(0_0_0/0.8)] ring-1 ring-white/[0.03] ring-inset backdrop-blur-2xl sm:p-9";
+const eyebrow = "text-xs font-medium tracking-[0.16em] text-[#ff9a4d] uppercase";
+const h2 = "mt-3 text-3xl font-semibold tracking-[-0.035em] text-balance text-white sm:text-[2.6rem] sm:leading-[1.05]";
+/** Italic serif accent in brand orange. */
+const accent = "sr-serif bg-linear-to-r from-[#ffb36b] to-[#f0782a] bg-clip-text pr-1.5 text-transparent";
 
 /** Stagger delay for an element's entrance. */
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
-function OpenApp() {
+function OpenApp({ size = "lg" }: { size?: "sm" | "lg" }) {
   return (
     <Link
       href="/"
-      className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand px-6 text-[15px] font-semibold text-paper shadow-[0_10px_28px_-8px_rgb(232_117_36/0.7)] transition-all hover:-translate-y-0.5 hover:bg-brand-strong hover:shadow-[0_14px_32px_-8px_rgb(232_117_36/0.8)]"
+      className={`group inline-flex items-center justify-center gap-2 rounded-full bg-[#f07a2a] font-semibold text-white shadow-[0_0_0_1px_rgb(255_255_255/0.12)_inset,0_12px_36px_-10px_rgb(240_122_42/0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#f38a42] ${
+        size === "lg" ? "h-12 px-6 text-[15px]" : "h-9 px-4 text-sm"
+      }`}
     >
-      Open SafeRoute
+      Open {size === "lg" ? "SafeRoute" : "app"}
       <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
     </Link>
   );
 }
 
+function Legend({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span className={swatch} aria-hidden="true" />
+      {label}
+    </li>
+  );
+}
+
 export default function AboutPage() {
   return (
-    <div className="relative min-h-dvh text-ink">
+    <div className={`sr-about relative min-h-dvh bg-[#0b0d12] text-white antialiased ${GeistSans.className}`}>
       <CityBackdrop />
-      {/* Keeps text readable over the scene: soft cream on the left on wide screens, from the top on phones. */}
+      {/* Darkens the scene where the text sits: from the left on wide screens, from the top on phones. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[1] bg-[linear-gradient(180deg,rgb(248_244_236/0.9)_0%,rgb(248_244_236/0.6)_60%,rgb(248_244_236/0.2)_100%)] md:bg-[radial-gradient(ellipse_75%_95%_at_10%_50%,rgb(248_244_236/0.94)_12%,rgb(248_244_236/0.55)_45%,transparent_75%)]"
+        className="pointer-events-none fixed inset-0 z-[1] bg-[linear-gradient(180deg,rgb(11_13_18/0.88)_0%,rgb(11_13_18/0.55)_55%,rgb(11_13_18/0.35)_100%)] md:bg-[radial-gradient(ellipse_75%_110%_at_0%_50%,rgb(11_13_18/0.94)_0%,rgb(11_13_18/0.7)_38%,transparent_72%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[1] h-40 bg-linear-to-t from-[#0b0d12]/80 to-transparent"
       />
 
-      <header className="fixed inset-x-0 top-0 z-30 border-b border-line/60 bg-paper/60 backdrop-blur-xl">
-        <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6" aria-label="Main">
-          <a href="#top" className="flex items-center gap-2" aria-label="SafeRoute, back to top">
-            <LogoMark size={28} />
-            <span className="text-[17px] font-semibold tracking-tight">SafeRoute</span>
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-white/[0.06] bg-[#0b0d12]/55 backdrop-blur-xl">
+        <nav className={`flex h-14 items-center justify-between ${pad} lg:pr-16`} aria-label="Main">
+          <a href="#top" className="flex items-center gap-2.5" aria-label="SafeRoute, back to top">
+            <LogoMark size={26} />
+            <span className="text-[16px] font-semibold tracking-tight">SafeRoute</span>
           </a>
-          <Link
-            href="/"
-            className="inline-flex h-9 items-center rounded-full bg-brand px-4 text-sm font-semibold text-paper hover:bg-brand-strong"
-          >
-            Open app
-          </Link>
+          <div className="flex items-center gap-1 sm:gap-6">
+            <div className="hidden items-center gap-6 text-sm text-white/60 md:flex">
+              <a href="#reports" className="transition-colors hover:text-white">How it works</a>
+              <a href="#routes" className="transition-colors hover:text-white">Compare</a>
+              <a href="#factors" className="transition-colors hover:text-white">Safety factors</a>
+            </div>
+            <OpenApp size="sm" />
+          </div>
         </nav>
       </header>
 
@@ -87,56 +112,68 @@ export default function AboutPage() {
 
       <main className="relative z-10">
         {/* 1. Hero */}
-        <section id="top" data-scene className={`${section} pt-28 pb-36`}>
-          <div className="max-w-xl">
-            <p className={`${eyebrow} sr-intro`} style={delay(100)}>
+        <section id="top" data-scene className={`${section} pb-40`}>
+          <div className="max-w-2xl">
+            <p
+              className="sr-intro inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pr-3.5 pl-2.5 text-xs font-medium text-white/70 backdrop-blur"
+              style={delay(100)}
+            >
+              <span className="relative flex size-2" aria-hidden="true">
+                <span className="absolute inset-0 animate-ping rounded-full bg-[#f07a2a]/70" />
+                <span className="relative size-2 rounded-full bg-[#f07a2a]" />
+              </span>
               Safety-first navigation
             </p>
-            <h1 className="mt-4 text-5xl leading-[0.98] font-semibold tracking-[-0.04em] sm:text-7xl">
-              <span className="sr-intro block" style={delay(250)}>
+            <h1 className="mt-6 text-[clamp(3.2rem,8vw,6.5rem)] leading-[0.92] font-semibold tracking-[-0.05em]">
+              <span className="sr-intro block bg-linear-to-b from-white to-white/70 bg-clip-text pb-1 text-transparent" style={delay(250)}>
                 Get there.
               </span>
-              <span className={`${accent} sr-intro block pr-2`} style={delay(450)}>
+              <span className={`sr-intro block ${accent} pb-2`} style={delay(430)}>
                 Safely.
               </span>
             </h1>
-            <p className="sr-intro mt-6 max-w-md text-lg leading-relaxed text-ink-soft text-pretty" style={delay(650)}>
-              The fastest road isn&apos;t always the one you want to be on. SafeRoute shows you the alternatives and why
+            <p className="sr-intro mt-6 max-w-lg text-lg leading-relaxed text-white/65 text-pretty sm:text-xl" style={delay(620)}>
+              The fastest road isn&apos;t always the one you want to be on. SafeRoute shows you the alternatives, and why
               one is safer.
             </p>
-            <div className="sr-intro mt-8 flex flex-wrap gap-3" style={delay(820)}>
+            <div className="sr-intro mt-9 flex flex-wrap gap-3" style={delay(800)}>
               <OpenApp />
               <a
                 href="#reports"
-                className="inline-flex h-12 items-center rounded-full border border-line-strong bg-paper/60 px-6 text-[15px] font-semibold backdrop-blur transition-colors hover:bg-paper"
+                className="inline-flex h-12 items-center rounded-full border border-white/15 bg-white/[0.04] px-6 text-[15px] font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
               >
                 How it works
               </a>
             </div>
+            <ul className="sr-intro mt-10 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-white/55" style={delay(980)}>
+              <Legend swatch="h-1 w-5 rounded-full bg-[#f07a2a] shadow-[0_0_10px_#f07a2a]" label="Safest route" />
+              <Legend swatch="h-1 w-5 rounded-full bg-[#9a958c]" label="Fastest route" />
+              <Legend swatch="size-2.5 rounded-full bg-[#e5484d] shadow-[0_0_10px_#e5484d]" label="Reported area" />
+            </ul>
           </div>
 
           <a
             href="#reports"
-            className="sr-intro absolute bottom-16 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-[11px] font-semibold tracking-[0.2em] text-ink-muted uppercase hover:text-ink sm:flex"
+            className="sr-intro absolute bottom-20 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-[10px] font-semibold tracking-[0.25em] text-white/45 uppercase transition-colors hover:text-white sm:flex"
             style={delay(1200)}
           >
             Scroll
-            <span className="relative h-7 w-px bg-ink-muted/40" aria-hidden="true">
-              <span className="sr-scroll-dot absolute -left-[2.5px] top-0 size-1.5 rounded-full bg-brand" />
+            <span className="relative h-8 w-px bg-white/20" aria-hidden="true">
+              <span className="sr-scroll-dot absolute -left-[2.5px] top-0 size-1.5 rounded-full bg-[#f07a2a]" />
             </span>
           </a>
 
           <div
-            className="sr-intro absolute inset-x-0 bottom-0 overflow-hidden border-t border-line/60 bg-paper/50 py-2.5 backdrop-blur-md"
+            className="sr-intro absolute inset-x-0 bottom-0 overflow-hidden border-t border-white/[0.06] bg-[#0b0d12]/70 py-3 backdrop-blur-md"
             style={delay(1000)}
             aria-hidden="true"
           >
-            <div className="sr-marquee flex w-max text-xs font-semibold text-ink-soft">
+            <div className="sr-marquee flex w-max text-xs font-medium tracking-wide text-white/55">
               {[0, 1].map((copy) => (
                 <div key={copy} className="flex shrink-0">
                   {[...TICKER, ...TICKER].map((t, i) => (
-                    <span key={i} className="flex items-center gap-3 px-3">
-                      <span className="size-1 rounded-full bg-brand" />
+                    <span key={i} className="flex items-center gap-4 px-4">
+                      <span className="size-1 rounded-full bg-[#f07a2a]" />
                       {t}
                     </span>
                   ))}
@@ -152,16 +189,16 @@ export default function AboutPage() {
             <p data-reveal className={eyebrow} style={delay(150)}>
               01 · See the area
             </p>
-            <h2 data-reveal className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl" style={delay(260)}>
+            <h2 data-reveal className={h2} style={delay(260)}>
               Reported crime, <span className={accent}>on the map.</span>
             </h2>
-            <p data-reveal className="mt-4 leading-relaxed text-ink-soft" style={delay(380)}>
+            <p data-reveal className="mt-4 leading-relaxed text-white/65" style={delay(380)}>
               Each red area comes from a news report, with the source linked. It&apos;s news, not official police data,
               and the map says so.
             </p>
-            <ul className="mt-6 flex flex-col gap-2.5 text-sm">
+            <ul className="mt-7 flex flex-col gap-3 border-t border-white/[0.08] pt-6 text-sm text-white/75">
               <li data-reveal className="flex items-center gap-3" style={delay(500)}>
-                <span className="size-3 rounded-full bg-[#e5484d]/70 ring-4 ring-[#e5484d]/20" aria-hidden="true" />
+                <span className="size-3 rounded-full bg-[#e5484d] shadow-[0_0_14px_#e5484d]" aria-hidden="true" />
                 Red glow: a reported area
               </li>
               <li data-reveal className="flex items-center gap-3" style={delay(600)}>
@@ -178,28 +215,28 @@ export default function AboutPage() {
             <p data-reveal className={eyebrow} style={delay(150)}>
               02 · Compare
             </p>
-            <h2 data-reveal className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl" style={delay(260)}>
+            <h2 data-reveal className={h2} style={delay(260)}>
               Three routes, <span className={accent}>one honest choice.</span>
             </h2>
-            <ul className="mt-6 flex flex-col gap-3">
+            <ul className="mt-7 flex flex-col gap-3">
               {ROUTES.map((r, i) => (
                 <li
                   key={r.name}
                   data-reveal
-                  className="rounded-2xl border border-line/80 bg-paper/70 px-4 py-3"
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5"
                   style={{ ...delay(380 + i * 130), "--w": r.w } as CSSProperties}
                 >
                   <div className="flex items-baseline justify-between gap-6">
-                    <span className="font-semibold">{r.name}</span>
-                    <span className="text-right text-sm text-ink-soft">{r.note}</span>
+                    <span className="font-semibold text-white">{r.name}</span>
+                    <span className="text-right text-sm text-white/55">{r.note}</span>
                   </div>
-                  <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-cream-deep" aria-hidden="true">
+                  <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden="true">
                     <div className={`sr-bar h-full rounded-full ${r.color}`} />
                   </div>
                 </li>
               ))}
             </ul>
-            <p data-reveal className="mt-4 text-sm text-ink-muted" style={delay(800)}>
+            <p data-reveal className="mt-5 text-sm text-white/45" style={delay(800)}>
               In the app, each route lists what was measured, so you can check the claim.
             </p>
           </div>
@@ -211,20 +248,20 @@ export default function AboutPage() {
             <p data-reveal className={eyebrow} style={delay(150)}>
               03 · What counts
             </p>
-            <h2 data-reveal className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl" style={delay(260)}>
+            <h2 data-reveal className={h2} style={delay(260)}>
               Lit streets <span className={accent}>matter.</span>
             </h2>
-            <ul className="mt-6 flex flex-col gap-4">
+            <ul className="mt-7 flex flex-col gap-4">
               {FACTORS.map((f, i) => (
-                <li key={f.title} data-reveal className="flex gap-3" style={delay(380 + i * 110)}>
+                <li key={f.title} data-reveal className="flex gap-3.5" style={delay(380 + i * 110)}>
                   <span
-                    className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[11px] font-bold text-brand-strong"
+                    className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#f07a2a]/15 text-[11px] font-semibold text-[#ff9a4d] ring-1 ring-[#f07a2a]/30"
                     aria-hidden="true"
                   >
                     {i + 1}
                   </span>
-                  <p className="text-sm leading-relaxed text-ink-soft">
-                    <b className="font-semibold text-ink">{f.title}.</b> {f.body}
+                  <p className="text-sm leading-relaxed text-white/60">
+                    <b className="font-semibold text-white">{f.title}.</b> {f.body}
                   </p>
                 </li>
               ))}
@@ -233,27 +270,31 @@ export default function AboutPage() {
         </section>
 
         {/* 5. Call to action */}
-        <section id="start" data-scene className="relative flex min-h-svh flex-col justify-between px-4 pt-24 sm:px-8 lg:px-16">
-          <div className="flex flex-1 items-center">
-            <div data-reveal="left" className={`${card} max-w-md`}>
-              <h2 data-reveal className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl" style={delay(150)}>
+        <section id="start" data-scene className="relative flex min-h-svh flex-col justify-between pt-28">
+          <div className={`flex flex-1 items-center ${pad}`}>
+            <div data-reveal="left" className={`${card} max-w-lg`}>
+              <h2 data-reveal className="text-4xl font-semibold tracking-[-0.04em] text-balance text-white sm:text-5xl" style={delay(150)}>
                 Where do you want <span className={accent}>to go?</span>
               </h2>
-              <p data-reveal className="mt-3 text-ink-soft" style={delay(280)}>
+              <p data-reveal className="mt-4 text-white/60" style={delay(280)}>
                 No account needed. Saved places stay in your browser.
               </p>
-              <div data-reveal className="mt-6" style={delay(400)}>
+              <div data-reveal className="mt-7" style={delay(400)}>
                 <OpenApp />
               </div>
             </div>
           </div>
-          <footer className="-mx-4 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 bg-paper/70 px-4 py-4 text-xs text-ink-soft backdrop-blur-xl sm:-mx-8 sm:px-8 lg:-mx-16 lg:px-16">
-            <span>SafeRoute · © {new Date().getFullYear()}</span>
+          <footer
+            className={`flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] bg-[#0b0d12]/80 py-5 text-xs text-white/45 backdrop-blur-xl ${pad} lg:pr-16`}
+          >
+            <span className="flex items-center gap-2">
+              <LogoMark size={18} /> SafeRoute · © {new Date().getFullYear()}
+            </span>
             <a
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-ink"
+              className="transition-colors hover:text-white"
             >
               © OpenStreetMap contributors
             </a>

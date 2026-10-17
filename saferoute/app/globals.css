@@ -426,10 +426,11 @@ body {
 
 /* ---- About page: scroll flow ------------------------------------------------ */
 
-/* Hero lines rise in on load, one after another (--d sets the delay). */
+/* Hero lines rise in on load, one after another (--d sets the delay). Opacity and
+   transform only, so the compositor runs it even while the 3D city is being built. */
 @keyframes sr-rise {
-  from { opacity: 0; transform: translate3d(0, 28px, 0); filter: blur(8px); }
-  to { opacity: 1; transform: none; filter: none; }
+  from { opacity: 0; transform: translate3d(0, 28px, 0); }
+  to { opacity: 1; transform: none; }
 }
 .sr-intro {
   animation: sr-rise 950ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
@@ -474,4 +475,22 @@ body {
   .sr-intro, .sr-marquee, .sr-scroll-dot { animation: none; }
   :root[data-fx] [data-reveal] { opacity: 1; transform: none; filter: none; transition: none; }
   .sr-bar { transition: none; }
+}
+
+/* ---- About page: dark theme -------------------------------------------------- */
+
+html:has(.sr-about),
+html:has(.sr-about) body {
+  background: #0b0d12;
+  color-scheme: dark;
+}
+.sr-about ::selection {
+  background: #f07a2a;
+  color: #fff;
+}
+.sr-serif {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }

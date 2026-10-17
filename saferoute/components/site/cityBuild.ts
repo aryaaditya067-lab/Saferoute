@@ -80,14 +80,25 @@ function windowBox(w: number, h: number, d: number, x: number, y: number, z: num
   return at(g, x, y, z, hex);
 }
 
+/**
+ * Wall texture plus a matching glow texture: the city is shown at night, so lit windows
+ * are drawn again on a black canvas and used as the material's emissive map.
+ */
 function windowTexture(kind: "glass" | "res", anisotropy: number) {
   const S = 256;
   const cell = S / TILE;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = S;
-  const ctx = canvas.getContext("2d")!;
+  const make = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = S;
+    return { canvas, ctx: canvas.getContext("2d")! };
+  };
+  const wall = make();
+  const glow = make();
+  const ctx = wall.ctx;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, S, S);
+  glow.ctx.fillStyle = "#000000";
+  glow.ctx.fillRect(0, 0, S, S);
   const r = seeded(kind === "glass" ? 3 : 5);
   for (let row = 0; row < TILE; row++) {
     for (let col = 0; col < TILE; col++) {
@@ -98,23 +109,35 @@ function windowTexture(kind: "glass" | "res", anisotropy: number) {
         ctx.fillRect(x + cell * 0.08, y + cell * 0.1, cell * 0.84, cell * 0.8);
         ctx.fillStyle = "rgba(255,255,255,0.18)";
         ctx.fillRect(x + cell * 0.08, y + cell * 0.1, cell * 0.84, cell * 0.18);
+        // Offices still working late: cool white panels.
+        if (r() < 0.3) {
+          glow.ctx.fillStyle = r() < 0.6 ? "#8fb2e8" : "#e8c48a";
+          glow.ctx.fillRect(x + cell * 0.08, y + cell * 0.1, cell * 0.84, cell * 0.8);
+        }
       } else {
-        // Sill, then a window that is sometimes lit warm, sometimes curtained.
+        // Sill, then a window that is often lit warm, sometimes curtained.
         ctx.fillStyle = "#d8d0c4";
         ctx.fillRect(x + cell * 0.2, y + cell * 0.72, cell * 0.6, cell * 0.06);
         const v = r();
-        ctx.fillStyle = v < 0.15 ? "#e9c88f" : v < 0.3 ? "#9c6b55" : `hsl(210, 12%, ${24 + r() * 18}%)`;
+        ctx.fillStyle = v < 0.34 ? "#e9c88f" : v < 0.44 ? "#9c6b55" : `hsl(210, 12%, ${24 + r() * 18}%)`;
         ctx.fillRect(x + cell * 0.25, y + cell * 0.24, cell * 0.5, cell * 0.46);
         ctx.fillStyle = "rgba(255,255,255,0.5)";
         ctx.fillRect(x + cell * 0.49, y + cell * 0.24, cell * 0.02, cell * 0.46);
+        if (v < 0.44) {
+          glow.ctx.fillStyle = v < 0.34 ? "#ffad4f" : "#9a4a26";
+          glow.ctx.fillRect(x + cell * 0.25, y + cell * 0.24, cell * 0.5, cell * 0.46);
+        }
       }
     }
   }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = anisotropy;
-  return tex;
+  const toTexture = (canvas: HTMLCanvasElement) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = anisotropy;
+    return tex;
+  };
+  return { map: toTexture(wall.canvas), glow: toTexture(glow.canvas) };
 }
 
 type Tree = { x: number; z: number; s: number; y: number };
@@ -195,6 +218,19 @@ function trainGeo() {
     );
   }
   return merge(parts);
+}
+
+/** Glowing head and tail lights for a model facing +x: [x, y, z] of each lamp. */
+function lampGeo(front: Array<[number, number, number]>, back: Array<[number, number, number]>) {
+  return merge([
+    ...front.map(([x, y, z]) => at(new THREE.BoxGeometry(0.06, 0.11, 0.2), x, y, z, 0xfff3c8)),
+    ...back.map(([x, y, z]) => at(new THREE.BoxGeometry(0.06, 0.1, 0.18), x, y, z, 0xff2a1a)),
+  ]);
+}
+
+/** A soft pool of headlight on the road ahead of a model whose nose is at x = nose. */
+function beamGeo(nose: number, width: number) {
+  return new THREE.CircleGeometry(1, 20).scale(2.4, width, 1).rotateX(-Math.PI / 2).translate(nose + 2.2, 0.06, 0);
 }
 
 type Lane = { axis: "x" | "z"; c: number; off: number; dir: 1 | -1; speed: number };
@@ -280,11 +316,19 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   const lamps: Array<[number, number]> = [];
   for (let x = -66; x <= 66; x += 8) lamps.push([x, 48 - 4.5], [x, 48 + 4.5]);
   for (let x = -66; x <= 66; x += 24) lamps.push([x, 24 + 4.5]);
+  // Sparser lights on the other streets, so the safe route reads as the bright one at night.
+  for (const c of ROADS) {
+    if (Math.abs(c) > 96 || c === 48 || c === 24) continue;
+    for (let s = -84; s <= 84; s += 24) {
+      lamps.push([s + 12, c + roadWidth(c) / 2 + 1.5]);
+      lamps.push([c + roadWidth(c) / 2 + 1.5, s + 12]);
+    }
+  }
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xffe2b0, toneMapped: false });
   const lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.45, 10, 8), glowMat, lamps.length);
   const poolMesh = new THREE.InstancedMesh(
     new THREE.CircleGeometry(3.4, 24).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xffb866, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+    new THREE.MeshBasicMaterial({ color: 0xffb866, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
     lamps.length,
   );
   const poleMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.1, 4, 6), new THREE.MeshStandardMaterial({ color: 0x5a4a3c }), lamps.length);
@@ -566,15 +610,21 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   // ---- merge static geometry
   const glassTex = windowTexture("glass", anisotropy);
   const resTex = windowTexture("res", anisotropy);
-  textures.push(glassTex, resTex);
+  textures.push(glassTex.map, glassTex.glow, resTex.map, resTex.glow);
   const addStatic = (geo: THREE.BufferGeometry, mat: THREE.Material) => {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     world.add(mesh);
   };
-  addStatic(merge(glassParts), new THREE.MeshStandardMaterial({ map: glassTex, vertexColors: true, roughness: 0.45, metalness: 0.2 }));
-  addStatic(merge(resParts), new THREE.MeshStandardMaterial({ map: resTex, vertexColors: true, roughness: 0.85, metalness: 0.02 }));
+  const lit = (tex: { map: THREE.Texture; glow: THREE.Texture }, intensity: number) => ({
+    map: tex.map,
+    emissiveMap: tex.glow,
+    emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: intensity,
+  });
+  addStatic(merge(glassParts), new THREE.MeshStandardMaterial({ ...lit(glassTex, 0.6), vertexColors: true, roughness: 0.45, metalness: 0.2 }));
+  addStatic(merge(resParts), new THREE.MeshStandardMaterial({ ...lit(resTex, 0.85), vertexColors: true, roughness: 0.85, metalness: 0.02 }));
   addStatic(merge(plain), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
 
   // ---- trees: rain-tree canopies on short trunks
@@ -605,10 +655,26 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
 
   // ---- traffic
   const kinds = [
-    { geo: carGeo(), weight: 0.46, colors: CAR_COLORS },
-    { geo: autoGeo(), weight: 0.24, colors: [0xffffff] },
-    { geo: bikeGeo(), weight: 0.2, colors: CLOTHES },
-    { geo: busGeo(), weight: 0.1, colors: BUS_COLORS },
+    {
+      geo: carGeo(), weight: 0.46, colors: CAR_COLORS,
+      lamps: lampGeo([[1.02, 0.47, 0.3], [1.02, 0.47, -0.3]], [[-1.02, 0.47, 0.32], [-1.02, 0.47, -0.32]]),
+      beam: beamGeo(1.0, 0.9),
+    },
+    {
+      geo: autoGeo(), weight: 0.24, colors: [0xffffff],
+      lamps: lampGeo([[0.84, 0.62, 0]], [[-0.7, 0.45, 0.35], [-0.7, 0.45, -0.35]]),
+      beam: beamGeo(0.82, 0.7),
+    },
+    {
+      geo: bikeGeo(), weight: 0.2, colors: CLOTHES,
+      lamps: lampGeo([[0.44, 0.5, 0]], [[-0.44, 0.45, 0]]),
+      beam: beamGeo(0.44, 0.5),
+    },
+    {
+      geo: busGeo(), weight: 0.1, colors: BUS_COLORS,
+      lamps: lampGeo([[2.43, 0.6, 0.45], [2.43, 0.6, -0.45]], [[-2.43, 0.6, 0.5], [-2.43, 0.6, -0.5]]),
+      beam: beamGeo(2.4, 1.2),
+    },
   ];
   const movers: Mover[][] = kinds.map(() => []);
   for (const axis of ["x", "z"] as const) {
@@ -641,6 +707,27 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
     world.add(mesh);
     return mesh;
   });
+  // Head/tail lights and headlight pools follow the same matrices as the vehicles.
+  const lampMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xffd9a0,
+    transparent: true,
+    opacity: 0.14,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  const lightFleets = kinds.flatMap((k, i) =>
+    [new THREE.InstancedMesh(k.lamps, lampMat, Math.max(1, movers[i]!.length)), new THREE.InstancedMesh(k.beam, beamMat, Math.max(1, movers[i]!.length))].map(
+      (mesh) => {
+        mesh.count = movers[i]!.length;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.frustumCulled = false;
+        world.add(mesh);
+        return { kind: i, mesh };
+      },
+    ),
+  );
 
   // ---- pedestrians on the sidewalks
   const peds: Array<{ axis: "x" | "z"; line: number; dir: number; speed: number; phase: number }> = [];
@@ -679,6 +766,7 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   });
 
   const wrap = (v: number) => ((v % LOOP) + LOOP) % LOOP - LOOP / 2;
+  const mat4 = new THREE.Matrix4();
 
   return {
     update(time: number) {
@@ -700,6 +788,14 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
         }
         mesh.instanceMatrix.needsUpdate = true;
       });
+      for (const { kind, mesh } of lightFleets) {
+        const fleet = fleets[kind]!;
+        for (const m of movers[kind]!) {
+          fleet.getMatrixAt(m.slot, mat4);
+          mesh.setMatrixAt(m.slot, mat4);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+      }
 
       peds.forEach((p, i) => {
         const s = wrap(p.phase + time * p.speed * p.dir);
