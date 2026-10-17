@@ -1,0 +1,15 @@
+export function LogoMark({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <rect width="32" height="32" rx="9" fill="#E87524" />
+      <path
+        d="M16 6.5l7.5 3v6.1c0 4.5-3.1 8.4-7.5 9.9-4.4-1.5-7.5-5.4-7.5-9.9V9.5l7.5-3z"
+        fill="none"
+        stroke="#FFFDF8"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M16 11.2l3.6 8.3-3.6-1.9-3.6 1.9 3.6-8.3z" fill="#FFFDF8" />
+    </svg>
+  );
+}
