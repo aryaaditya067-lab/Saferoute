@@ -160,6 +160,15 @@ export default function CityScene() {
     resize();
     window.addEventListener("resize", resize);
 
+    // A little mouse parallax so the city feels alive under the pointer (mouse only).
+    const pointer = { x: 0, y: 0, sx: 0, sy: 0 };
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
+      pointer.x = (e.clientX / window.innerWidth - 0.5) * 2;
+      pointer.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+
     const onVisibility = () => {
       visible = !document.hidden;
       last = performance.now();
@@ -210,6 +219,13 @@ export default function CityScene() {
       // Narrow screens need the camera further back to keep the scene in frame.
       const back = camera.aspect < 1 ? 1 + (1 - camera.aspect) * 0.9 : 1;
       camera.position.copy(look).add(tmp.copy(pos).sub(look).multiplyScalar(back));
+      if (!reduce) {
+        const k = 1 - Math.exp(-Math.min(0.5, elapsed) * 3);
+        pointer.sx += (pointer.x - pointer.sx) * k;
+        pointer.sy += (pointer.y - pointer.sy) * k;
+        camera.position.x += pointer.sx * 4;
+        camera.position.y -= pointer.sy * 2.5;
+      }
       camera.lookAt(look);
       // Thin the haze as the camera climbs so the top-down view stays crisp.
       (scene.fog as THREE.FogExp2).density = 0.0045 - Math.min(1, Math.max(0, (camera.position.y - 30) / 120)) * 0.003;
@@ -228,6 +244,7 @@ export default function CityScene() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", onPointer);
       document.removeEventListener("visibilitychange", onVisibility);
       scene.traverse((obj) => {
         if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) {
