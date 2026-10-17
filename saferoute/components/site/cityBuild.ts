@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { radialGlowTexture } from "./sceneFx";
 
 /**
  * Detailed low-poly Bengaluru-ish city for the about page: textured buildings with
@@ -247,6 +248,8 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   const trees: Tree[] = [];
   const dummy = new THREE.Object3D();
   const textures: THREE.Texture[] = [];
+  const glowTex = radialGlowTexture();
+  textures.push(glowTex);
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshStandardMaterial({ color: 0xece3d2, roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
@@ -325,12 +328,19 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
     }
   }
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xffe2b0, toneMapped: false });
-  const lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.45, 10, 8), glowMat, lamps.length);
+  const lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.3, 14, 10), glowMat, lamps.length);
+  // Light pools fade out softly instead of ending in a hard-edged disc.
   const poolMesh = new THREE.InstancedMesh(
-    new THREE.CircleGeometry(3.4, 24).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xffb866, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+    new THREE.CircleGeometry(4.2, 32).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xffb866, map: glowTex, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
     lamps.length,
   );
+  // A small halo round each lamp head, always facing the camera.
+  const halos = new THREE.Points(
+    new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(lamps.flatMap(([x, z]) => [x, 4.1, z]), 3)),
+    new THREE.PointsMaterial({ color: 0xffd49a, map: glowTex, size: 2.6, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+  );
+  world.add(halos);
   const poleMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.1, 4, 6), new THREE.MeshStandardMaterial({ color: 0x5a4a3c }), lamps.length);
   lamps.forEach(([x, z], i) => {
     dummy.scale.set(1, 1, 1);
@@ -628,13 +638,17 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   addStatic(merge(plain), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
 
   // ---- trees: rain-tree canopies on short trunks
-  const trunkMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.14, 1.3, 6), new THREE.MeshStandardMaterial({ color: 0x6b4f3a }), trees.length);
-  const canopyMesh = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(1, 0),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true }),
-    trees.length,
-  );
-  const leaf = [0x6f9a4e, 0x5f8c45, 0x7fa85a, 0x88ad5e, 0x56803f];
+  const trunkMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.14, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0x6b4f3a }), trees.length);
+  // A smooth canopy made of three overlapping puffs, rather than one faceted ball.
+  const canopyGeo = mergeGeometries(
+    [
+      new THREE.SphereGeometry(0.82, 16, 12).translate(0, 0.12, 0),
+      new THREE.SphereGeometry(0.6, 14, 10).translate(0.55, -0.06, 0.2),
+      new THREE.SphereGeometry(0.62, 14, 10).translate(-0.48, -0.02, -0.28),
+    ].map((g) => g.toNonIndexed()),
+  )!;
+  const canopyMesh = new THREE.InstancedMesh(canopyGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }), trees.length);
+  const leaf = [0x5f8a45, 0x527c3c, 0x6b9450, 0x739a52, 0x4a7236];
   const tc = new THREE.Color();
   trees.forEach((t, i) => {
     dummy.rotation.set(0, r() * Math.PI, 0);
@@ -711,8 +725,9 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   const lampMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   const beamMat = new THREE.MeshBasicMaterial({
     color: 0xffd9a0,
+    map: glowTex,
     transparent: true,
-    opacity: 0.14,
+    opacity: 0.4,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     toneMapped: false,

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { buildCity } from "./cityBuild";
+import { addRouteRibbon, arrowGeometry, headingYaw, radialGlowTexture } from "./sceneFx";
 
 /**
  * Detailed low-poly city behind the about page (see cityBuild). A reported-crime area glows red,
@@ -32,37 +33,6 @@ const KEYS: Array<{ p: [number, number, number]; l: [number, number, number] }> 
   { p: [66, 42, -52], l: [0, 0, 0] },
 ];
 
-function addRoute(world: THREE.Group, points: Pt[], color: number, width: number, y: number) {
-  const mat = new THREE.MeshBasicMaterial({ color, toneMapped: false });
-  const glow = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false, toneMapped: false });
-  const segments: Array<{ a: THREE.Vector3; b: THREE.Vector3; len: number }> = [];
-  for (let i = 1; i < points.length; i++) {
-    const a = new THREE.Vector3(points[i - 1]![0], y, points[i - 1]![1]);
-    const b = new THREE.Vector3(points[i]![0], y, points[i]![1]);
-    const len = a.distanceTo(b);
-    const horizontal = Math.abs(a.z - b.z) < 1e-6;
-    const geo = (w: number) => new THREE.BoxGeometry(horizontal ? len + w : w, 0.12, horizontal ? w : len + w);
-    const mid = a.clone().add(b).multiplyScalar(0.5);
-    const line = new THREE.Mesh(geo(width), mat);
-    const halo = new THREE.Mesh(geo(width * 3.2), glow);
-    line.position.copy(mid);
-    halo.position.copy(mid).setY(y - 0.03);
-    world.add(halo, line);
-    segments.push({ a, b, len });
-  }
-  const total = segments.reduce((s, g) => s + g.len, 0);
-  return {
-    total,
-    at(t: number, out: THREE.Vector3) {
-      let d = (t % 1) * total;
-      for (const s of segments) {
-        if (d <= s.len) return out.lerpVectors(s.a, s.b, d / s.len);
-        d -= s.len;
-      }
-      return out.copy(segments[segments.length - 1]!.b);
-    },
-  };
-}
 
 function addPin(world: THREE.Group, [x, z]: Pt, color: number) {
   // Pickup (dark) and destination (orange) markers.
@@ -111,29 +81,42 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
 
   const city = buildCity(world, renderer.capabilities.getMaxAnisotropy());
 
-  // Reported-crime area: a soft red glow on the avenue crossing.
-  const hotspotMat = new THREE.MeshBasicMaterial({ color: DANGER, transparent: true, opacity: 0.3, depthWrite: false, toneMapped: false });
-  const hotspot = new THREE.Mesh(new THREE.CircleGeometry(15, 48).rotateX(-Math.PI / 2), hotspotMat);
+  const glowTex = radialGlowTexture();
+  const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false } as const;
+
+  // Reported-crime area: a soft red glow that fades out at its edge, with a pulsing ring.
+  const hotspotMat = new THREE.MeshBasicMaterial({ ...additive, color: DANGER, map: glowTex, opacity: 0.7 });
+  const hotspot = new THREE.Mesh(new THREE.PlaneGeometry(34, 34).rotateX(-Math.PI / 2), hotspotMat);
   hotspot.position.copy(HOTSPOT).setY(0.2);
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(14.4, 15, 64).rotateX(-Math.PI / 2),
+    new THREE.RingGeometry(14.6, 15, 96).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ color: DANGER, transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false }),
   );
   ring.position.copy(HOTSPOT).setY(0.22);
   world.add(hotspot, ring);
 
-  addRoute(world, FASTEST, 0x8f8a80, 1.1, 0.3);
-  const safest = addRoute(world, SAFEST, BRAND, 1.5, 0.36);
+  const fastest = addRouteRibbon(world, FASTEST, { color: 0x9a958c, core: 0.7, glow: 4, y: 0.3, glowOpacity: 0.22 });
+  const safest = addRouteRibbon(world, SAFEST, { color: 0xf07a2a, core: 1.1, glow: 7.5, y: 0.36, glowOpacity: 0.6, flow: true });
   addPin(world, A, 0x242321);
   addPin(world, B, BRAND);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfffdf8, toneMapped: false }));
-  const headGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(3.2, 16, 12),
-    new THREE.MeshBasicMaterial({ color: BRAND, transparent: true, opacity: 0.25, depthWrite: false, toneMapped: false }),
-  );
-  head.position.y = 1.2;
-  world.add(head, headGlow);
+  // A navigation arrow drives along the safest route, with a warm glow on the road under it.
+  const arrowMat = new THREE.MeshStandardMaterial({
+    color: 0xfffaf2,
+    emissive: 0xffd9b0,
+    emissiveIntensity: 0.55,
+    roughness: 0.35,
+    metalness: 0.1,
+    transparent: true,
+  });
+  const arrow = new THREE.Mesh(arrowGeometry(), arrowMat);
+  arrow.castShadow = true;
+  arrow.scale.setScalar(1.8);
+  const arrowGlowMat = new THREE.MeshBasicMaterial({ ...additive, color: BRAND, map: glowTex, opacity: 0.9 });
+  const arrowGlow = new THREE.Mesh(new THREE.PlaneGeometry(16, 16).rotateX(-Math.PI / 2), arrowGlowMat);
+  arrowGlow.renderOrder = 5;
+  world.add(arrow, arrowGlow);
+  const tangent = new THREE.Vector3();
 
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const pos = new THREE.Vector3();
@@ -227,13 +210,22 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     // Thin the haze as the camera climbs so the top-down view stays crisp.
     (scene.fog as THREE.FogExp2).density = 0.0045 - Math.min(1, Math.max(0, (camera.position.y - 30) / 120)) * 0.003;
 
-    hotspotMat.opacity = 0.24 + Math.sin(time * 2.2) * 0.07;
+    hotspotMat.opacity = 0.6 + Math.sin(time * 2.2) * 0.12;
     ring.scale.setScalar(1 + ((time * 0.35) % 1) * 0.12);
     (ring.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - ((time * 0.35) % 1));
     city.update(time);
-    safest.at(time * 0.06, pt);
-    head.position.set(pt.x, 1.2, pt.z);
-    headGlow.position.copy(head.position);
+    fastest.update(time);
+    safest.update(time);
+    // Arrow: one trip every ~20 s, fading out at the destination and back in at the start.
+    const t = (time * 0.05) % 1;
+    safest.path.getPointAt(t, pt);
+    safest.path.getTangentAt(t, tangent);
+    arrow.position.set(pt.x, 0.55 + Math.sin(time * 3) * 0.08, pt.z);
+    arrow.rotation.y = headingYaw(tangent);
+    const fade = Math.min(1, t * 14, (1 - t) * 14);
+    arrowMat.opacity = fade;
+    arrowGlow.position.set(pt.x, 0.42, pt.z);
+    arrowGlowMat.opacity = 0.9 * fade;
     renderer.render(scene, camera);
     // Fade the city in once its first frame is ready.
     if (canvas.style.opacity !== "1") canvas.style.opacity = "1";
@@ -246,13 +238,16 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     window.removeEventListener("pointermove", onPointer);
     document.removeEventListener("visibilitychange", onVisibility);
     scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh) {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {
         obj.geometry.dispose();
         const m = obj.material;
         (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose());
       }
     });
     city.dispose();
+    fastest.dispose();
+    safest.dispose();
+    glowTex.dispose();
     renderer.dispose();
   };
 }
