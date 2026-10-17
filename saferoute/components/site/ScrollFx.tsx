@@ -59,10 +59,21 @@ export function ScrollFx({ sections }: { sections: ScrollSection[] }) {
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
 
+    // Cards marked [data-spot] get a light that follows the pointer (see .sr-spot).
+    const onPointer = (e: PointerEvent) => {
+      const el = (e.target as Element | null)?.closest?.("[data-spot]");
+      if (!(el instanceof HTMLElement)) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      el.style.setProperty("--my", `${e.clientY - r.top}px`);
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
+      window.removeEventListener("pointermove", onPointer);
       observer?.disconnect();
       delete root.dataset.fx;
     };

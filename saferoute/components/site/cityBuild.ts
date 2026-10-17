@@ -246,6 +246,8 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   const resParts: THREE.BufferGeometry[] = [];
   const plain: THREE.BufferGeometry[] = [];
   const trees: Tree[] = [];
+  /** Red aviation lights on top of the towers. */
+  const beacons: Array<[number, number, number]> = [];
   const dummy = new THREE.Object3D();
   const textures: THREE.Texture[] = [];
   const glowTex = radialGlowTexture();
@@ -466,6 +468,9 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
     for (let k = 0; k < 4; k++) plain.push(at(new THREE.BoxGeometry(0.55, 0.4, 0.55), cx + (r() - 0.5) * (tw - 1), top + 0.2, cz + (r() - 0.5) * (td - 1), 0xbfc3c6));
     if (r() < 0.6) {
       plain.push(at(new THREE.CylinderGeometry(0.04, 0.05, 2.6, 6), cx, top + 0.9 + 1.3, cz, 0x6a6e73));
+      beacons.push([cx, top + 0.9 + 2.65, cz]);
+    } else {
+      beacons.push([cx, top + 1.0, cz]);
     }
     // Planters around the podium.
     for (const s of [-1, 1]) {
@@ -667,6 +672,28 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
   canopyMesh.receiveShadow = true;
   world.add(trunkMesh, canopyMesh);
 
+  // ---- aviation beacons: a small red lamp with a halo that blinks on each tower
+  const beaconGeo = new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(beacons.flat(), 3));
+  const beaconLamps = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff4d3a, toneMapped: false }), Math.max(1, beacons.length));
+  beaconLamps.count = beacons.length;
+  beacons.forEach(([x, y, z], i) => {
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    beaconLamps.setMatrixAt(i, dummy.matrix);
+  });
+  const beaconHaloMat = new THREE.PointsMaterial({
+    color: 0xff3b2a,
+    map: glowTex,
+    size: 3.2,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  world.add(beaconLamps, new THREE.Points(beaconGeo, beaconHaloMat));
+
   // ---- traffic
   const kinds = [
     {
@@ -785,6 +812,10 @@ export function buildCity(world: THREE.Group, anisotropy: number) {
 
   return {
     update(time: number) {
+      // A short flash every 1.6 s, like real obstruction lights.
+      const blink = (time % 1.6) / 1.6;
+      beaconHaloMat.opacity = blink < 0.18 ? 1 : 0.15;
+
       kinds.forEach((_, i) => {
         const mesh = fleets[i]!;
         for (const m of movers[i]!) {

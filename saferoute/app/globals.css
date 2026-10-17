@@ -494,3 +494,83 @@ html:has(.sr-about) body {
   font-weight: 400;
   letter-spacing: -0.01em;
 }
+
+/* ---- About page: type and motion details -------------------------------------- */
+
+.sr-display {
+  font-family: "Bricolage Grotesque Variable", var(--font-geist-sans), ui-sans-serif, sans-serif;
+  font-optical-sizing: auto;
+}
+.sr-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Headline lines slide up from behind a mask. */
+.sr-mask {
+  display: block;
+  overflow: hidden;
+  padding: 0 0.18em 0.1em 0;
+  margin-bottom: -0.1em;
+}
+.sr-mask > span {
+  display: block;
+  animation: sr-mask-up 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes sr-mask-up {
+  from { transform: translate3d(0, 108%, 0) rotate(2.5deg); }
+  to { transform: none; }
+}
+
+/* Slow drift of the orange gradient inside accent words. */
+.sr-shimmer {
+  background-size: 220% 100%;
+  animation: sr-shimmer 7s ease-in-out infinite;
+}
+@keyframes sr-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Cards: a soft light and a lit border follow the pointer (positions set by ScrollFx). */
+.sr-spot { position: relative; isolation: isolate; }
+.sr-spot::before,
+.sr-spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.sr-spot::before {
+  z-index: -1;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(240 122 42 / 0.13), transparent 60%);
+}
+.sr-spot::after {
+  padding: 1px;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgb(255 178 120 / 0.65), transparent 65%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.sr-spot:hover::before,
+.sr-spot:hover::after { opacity: 1; }
+
+/* A light sweep across primary buttons on hover. */
+.sr-sheen { position: relative; overflow: hidden; }
+.sr-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.38) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform 850ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sr-sheen:hover::after { transform: translateX(130%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sr-mask > span, .sr-shimmer { animation: none; }
+  .sr-sheen::after { display: none; }
+}

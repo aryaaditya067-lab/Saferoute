@@ -1,4 +1,6 @@
+import "@fontsource-variable/bricolage-grotesque";
 import "@fontsource/instrument-serif/400-italic.css";
+import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { ArrowRight } from "lucide-react";
 import type { Metadata, Viewport } from "next";
@@ -46,10 +48,10 @@ const pad = "px-5 sm:px-8 lg:pl-16 lg:pr-40";
 const section = `relative flex min-h-svh items-center py-28 ${pad}`;
 const card =
   "rounded-3xl border border-white/10 bg-[#10131a]/75 p-7 shadow-[0_40px_100px_-30px_rgb(0_0_0/0.8)] ring-1 ring-white/[0.03] ring-inset backdrop-blur-2xl sm:p-9";
-const eyebrow = "text-xs font-medium tracking-[0.16em] text-[#ff9a4d] uppercase";
-const h2 = "mt-3 text-3xl font-semibold tracking-[-0.035em] text-balance text-white sm:text-[2.6rem] sm:leading-[1.05]";
+const eyebrow = "sr-mono text-[11px] font-medium tracking-[0.2em] text-[#ff9a4d] uppercase";
+const h2 = "sr-display mt-3 text-3xl font-semibold tracking-[-0.03em] text-balance text-white sm:text-[2.6rem] sm:leading-[1.05]";
 /** Italic serif accent in brand orange. */
-const accent = "sr-serif bg-linear-to-r from-[#ffb36b] to-[#f0782a] bg-clip-text pr-1.5 text-transparent";
+const accent = "sr-serif sr-shimmer bg-linear-to-r from-[#ffc58a] via-[#f07a2a] to-[#ffc58a] bg-clip-text pr-1.5 text-transparent";
 
 /** Stagger delay for an element's entrance. */
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
@@ -58,7 +60,7 @@ function OpenApp({ size = "lg" }: { size?: "sm" | "lg" }) {
   return (
     <Link
       href="/"
-      className={`group inline-flex items-center justify-center gap-2 rounded-full bg-[#f07a2a] font-semibold text-white shadow-[0_0_0_1px_rgb(255_255_255/0.12)_inset,0_12px_36px_-10px_rgb(240_122_42/0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#f38a42] ${
+      className={`sr-sheen group inline-flex items-center justify-center gap-2 rounded-full bg-[#f07a2a] font-semibold text-white shadow-[0_0_0_1px_rgb(255_255_255/0.12)_inset,0_12px_36px_-10px_rgb(240_122_42/0.9)] transition-all hover:-translate-y-0.5 hover:bg-[#f38a42] ${
         size === "lg" ? "h-12 px-6 text-[15px]" : "h-9 px-4 text-sm"
       }`}
     >
@@ -79,7 +81,7 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
 
 export default function AboutPage() {
   return (
-    <div className={`sr-about relative min-h-dvh bg-[#0b0d12] text-white antialiased ${GeistSans.className}`}>
+    <div className={`sr-about relative min-h-dvh bg-[#0b0d12] text-white antialiased ${GeistSans.className} ${GeistMono.variable}`}>
       <CityBackdrop />
       {/* Darkens the scene where the text sits: from the left on wide screens, from the top on phones. */}
       <div
@@ -115,7 +117,7 @@ export default function AboutPage() {
         <section id="top" data-scene className={`${section} pb-40`}>
           <div className="max-w-2xl">
             <p
-              className="sr-intro inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pr-3.5 pl-2.5 text-xs font-medium text-white/70 backdrop-blur"
+              className="sr-intro sr-mono inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pr-3.5 pl-2.5 text-[11px] font-medium tracking-[0.12em] text-white/70 uppercase backdrop-blur"
               style={delay(100)}
             >
               <span className="relative flex size-2" aria-hidden="true">
@@ -124,12 +126,16 @@ export default function AboutPage() {
               </span>
               Safety-first navigation
             </p>
-            <h1 className="mt-6 text-[clamp(3.2rem,8vw,6.5rem)] leading-[0.92] font-semibold tracking-[-0.05em]">
-              <span className="sr-intro block bg-linear-to-b from-white to-white/70 bg-clip-text pb-1 text-transparent" style={delay(250)}>
-                Get there.
+            <h1 className="sr-display mt-6 text-[clamp(3.4rem,8.5vw,7rem)] leading-[0.9] font-semibold tracking-[-0.045em]">
+              <span className="sr-mask">
+                <span className="bg-linear-to-b from-white to-white/70 bg-clip-text text-transparent" style={delay(200)}>
+                  Get there.
+                </span>
               </span>
-              <span className={`sr-intro block ${accent} pb-2`} style={delay(430)}>
-                Safely.
+              <span className="sr-mask">
+                <span style={delay(380)}>
+                  <span className={`${accent} inline-block pb-1 font-normal`}>Safely.</span>
+                </span>
               </span>
             </h1>
             <p className="sr-intro mt-6 max-w-lg text-lg leading-relaxed text-white/65 text-pretty sm:text-xl" style={delay(620)}>
@@ -168,7 +174,7 @@ export default function AboutPage() {
             style={delay(1000)}
             aria-hidden="true"
           >
-            <div className="sr-marquee flex w-max text-xs font-medium tracking-wide text-white/55">
+            <div className="sr-marquee sr-mono flex w-max text-[11px] font-medium tracking-[0.14em] text-white/55 uppercase">
               {[0, 1].map((copy) => (
                 <div key={copy} className="flex shrink-0">
                   {[...TICKER, ...TICKER].map((t, i) => (
@@ -185,7 +191,7 @@ export default function AboutPage() {
 
         {/* 2. Reported areas */}
         <section id="reports" data-scene className={`${section} justify-end`}>
-          <div data-reveal="right" className={`${card} max-w-md`}>
+          <div data-reveal="right" data-spot className={`sr-spot ${card} max-w-md`}>
             <p data-reveal className={eyebrow} style={delay(150)}>
               01 · See the area
             </p>
@@ -211,7 +217,7 @@ export default function AboutPage() {
 
         {/* 3. Routes */}
         <section id="routes" data-scene className={section}>
-          <div data-reveal="left" className={`${card} w-full max-w-lg`}>
+          <div data-reveal="left" data-spot className={`sr-spot ${card} w-full max-w-lg`}>
             <p data-reveal className={eyebrow} style={delay(150)}>
               02 · Compare
             </p>
@@ -244,7 +250,7 @@ export default function AboutPage() {
 
         {/* 4. Factors */}
         <section id="factors" data-scene className={`${section} justify-end`}>
-          <div data-reveal="right" className={`${card} max-w-md`}>
+          <div data-reveal="right" data-spot className={`sr-spot ${card} max-w-md`}>
             <p data-reveal className={eyebrow} style={delay(150)}>
               03 · What counts
             </p>
@@ -272,8 +278,8 @@ export default function AboutPage() {
         {/* 5. Call to action */}
         <section id="start" data-scene className="relative flex min-h-svh flex-col justify-between pt-28">
           <div className={`flex flex-1 items-center ${pad}`}>
-            <div data-reveal="left" className={`${card} max-w-lg`}>
-              <h2 data-reveal className="text-4xl font-semibold tracking-[-0.04em] text-balance text-white sm:text-5xl" style={delay(150)}>
+            <div data-reveal="left" data-spot className={`sr-spot ${card} max-w-lg`}>
+              <h2 data-reveal className="sr-display text-4xl font-semibold tracking-[-0.035em] text-balance text-white sm:text-5xl" style={delay(150)}>
                 Where do you want <span className={accent}>to go?</span>
               </h2>
               <p data-reveal className="mt-4 text-white/60" style={delay(280)}>

@@ -3,6 +3,10 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { buildCity } from "./cityBuild";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { addRouteRibbon, arrowGeometry, headingYaw, radialGlowTexture } from "./sceneFx";
 
 /**
@@ -65,6 +69,12 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   scene.background = new THREE.Color(BG);
   scene.fog = new THREE.FogExp2(BG, 0.0045);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 700);
+  // Soft bloom: only the brightest things (lamps, lit windows, the route, the arrow) glow.
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), small ? 0.45 : 0.6, 0.55, 0.8);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
   const world = new THREE.Group();
   scene.add(world);
 
@@ -136,6 +146,8 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    composer.setPixelRatio(renderer.getPixelRatio());
+    composer.setSize(w, h);
   };
   resize();
   window.addEventListener("resize", resize);
@@ -226,7 +238,7 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     arrowMat.opacity = fade;
     arrowGlow.position.set(pt.x, 0.42, pt.z);
     arrowGlowMat.opacity = 0.9 * fade;
-    renderer.render(scene, camera);
+    composer.render();
     // Fade the city in once its first frame is ready.
     if (canvas.style.opacity !== "1") canvas.style.opacity = "1";
   };
@@ -248,6 +260,8 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     fastest.dispose();
     safest.dispose();
     glowTex.dispose();
+    bloom.dispose();
+    composer.dispose();
     renderer.dispose();
   };
 }
