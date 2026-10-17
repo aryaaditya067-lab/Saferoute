@@ -4,6 +4,21 @@ $backend = Join-Path $root "saferoute-backend"
 $frontend = Join-Path $root "saferoute"
 $jbr = "C:\Program Files\Android\Android Studio\jbr"
 
+# Pull the latest code from GitHub and install any new website packages.
+if (Test-Path (Join-Path $root ".git")) {
+    Write-Host "GitHub se latest code le rahe hain..." -ForegroundColor Yellow
+    git -C $root pull --ff-only
+    if ($LASTEXITCODE -ne 0) { Write-Host "git pull nahi hua, purane code se chala rahe hain." -ForegroundColor Red }
+}
+$lock = Join-Path $frontend "package-lock.json"
+$stamp = Join-Path $frontend "node_modules\.package-lock.json"
+if (-not (Test-Path $stamp) -or (Get-Item $lock).LastWriteTime -gt (Get-Item $stamp).LastWriteTime) {
+    Write-Host "Website packages install ho rahe hain..." -ForegroundColor Yellow
+    Push-Location $frontend
+    npm.cmd install --no-audit --no-fund
+    Pop-Location
+}
+
 Write-Host "1/3 Backend start ho raha hai (naya window)..." -ForegroundColor Yellow
 $backendCmd = @"
 `$env:JAVA_HOME = '$jbr'
