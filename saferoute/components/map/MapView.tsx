@@ -95,7 +95,7 @@ function metroPopup(st: TransitStation): HTMLElement {
 function locationPopup(title: string, location: Location): HTMLElement {
   const root = document.createElement("div");
   const label = document.createElement("div");
-  label.style.cssText = "font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a857b";
+  label.style.cssText = "font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-ink-muted)";
   label.textContent = title;
   const name = document.createElement("div");
   name.style.cssText = "font-weight:600;margin-top:2px";
@@ -104,7 +104,7 @@ function locationPopup(title: string, location: Location): HTMLElement {
   const detail = location.address ?? formatCoordinates(location);
   if (detail) {
     const address = document.createElement("div");
-    address.style.cssText = "color:#57534c;margin-top:2px";
+    address.style.cssText = "color:var(--color-ink-soft);margin-top:2px";
     address.textContent = detail;
     root.append(address);
   }
@@ -312,7 +312,7 @@ export default function MapView(props: MapViewProps) {
       title.style.cssText = "font-weight:600";
       title.textContent = "Dropped pin";
       const coords = document.createElement("div");
-      coords.style.cssText = "color:#8a857b;font-size:12px;margin-top:2px;font-variant-numeric:tabular-nums";
+      coords.style.cssText = "color:var(--color-ink-muted);font-size:12px;margin-top:2px;font-variant-numeric:tabular-nums";
       coords.textContent = formatCoordinates(point);
       const actions = document.createElement("div");
       actions.className = "sr-popup-actions";
@@ -330,7 +330,7 @@ export default function MapView(props: MapViewProps) {
         return button;
       };
       actions.append(
-        makeButton("pickup", "Set as pickup", "#242321"),
+        makeButton("pickup", "Set as pickup", "var(--color-ink)"),
         makeButton("destination", "Set as destination", ROUTE_COLOR),
       );
       if (latest.current.onReportAt) {
@@ -512,8 +512,8 @@ export default function MapView(props: MapViewProps) {
 
   // ---- Reported crimes -------------------------------------------------------
   // Zoomed out: ~1 km squares shaded by how much crime was reported there.
-  // Zoomed in (13+): each report's area and its 💬 marker as well.
-  const showIncidentDetail = (zoom ?? 0) >= 13;
+  // Zoomed in (14+): each report's area and its 💬 marker as well.
+  const showIncidentDetail = (zoom ?? 0) >= 14;
   useEffect(() => {
     const layer = incidentLayerRef.current;
     if (!layer) return;
@@ -523,8 +523,8 @@ export default function MapView(props: MapViewProps) {
     for (const cell of cells) {
       const intensity = maxWeight > 0 ? cell.weight / maxWeight : 0;
       // A soft glow: three stacked circles, strongest in the middle, sized by how busy the area is.
-      const outer = 420 + 380 * intensity;
-      for (const [k, o] of [[0.55, 0.16], [0.28, 0.2]] as const) {
+      const outer = 340 + 340 * intensity;
+      for (const [k, o] of [[0.55, 0.2], [0.28, 0.3]] as const) {
         layer.addLayer(
           L.circle([cell.lat, cell.lng], {
             pane: "incidentAreas",
@@ -540,11 +540,7 @@ export default function MapView(props: MapViewProps) {
       const rect = L.circle([cell.lat, cell.lng], {
         pane: "incidentAreas",
         radius: outer,
-        stroke: true,
-        color: "#E5484D",
-        weight: 1,
-        opacity: 0.25,
-        dashArray: "3 5",
+        stroke: false,
         fillColor: "#E5484D",
         fillOpacity: 0.07 + 0.08 * intensity,
       });
@@ -559,23 +555,46 @@ export default function MapView(props: MapViewProps) {
       text.append(head, meta);
       rect.bindPopup(text, { maxWidth: 260 });
       layer.addLayer(rect);
+      // Zoomed out, a small numbered bubble marks each area so it stays visible at any zoom.
+      if (!showIncidentDetail) {
+        const size = Math.round(20 + 8 * intensity);
+        const bubble = L.marker([cell.lat, cell.lng], {
+          pane: "incidentMarkers",
+          icon: L.divIcon({
+            className: "sr-marker",
+            html: `<div class="sr-hot" style="width:${size}px;height:${size}px">${cell.count}</div>`,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+          }),
+          title: `${cell.count} reported crime${cell.count === 1 ? "" : "s"} in this area`,
+          riseOnHover: true,
+        });
+        bubble.bindPopup(text, { maxWidth: 260 });
+        layer.addLayer(bubble);
+      }
     }
     if (!showIncidentDetail) return;
+    // Many reports share one locality's centre; draw that area once so it doesn't stack up dark red.
+    const drawnAreas = new Set<string>();
     for (const incident of props.incidents) {
       const center: L.LatLngExpression = [incident.lat, incident.lng];
-      layer.addLayer(
-        L.circle(center, {
-          pane: "incidentAreas",
-          radius: incident.radiusMeters,
-          stroke: true,
-          color: "#E5484D",
-          weight: 1,
-          opacity: 0.35,
-          fillColor: "#E5484D",
-          fillOpacity: incident.category === "violent" ? 0.08 : 0.05,
-          interactive: false,
-        }),
-      );
+      const areaKey = `${incident.lat.toFixed(4)},${incident.lng.toFixed(4)},${incident.radiusMeters}`;
+      if (!drawnAreas.has(areaKey)) {
+        drawnAreas.add(areaKey);
+        layer.addLayer(
+          L.circle(center, {
+            pane: "incidentAreas",
+            radius: incident.radiusMeters,
+            stroke: true,
+            color: "#E5484D",
+            weight: 1,
+            opacity: 0.22,
+            fillColor: "#E5484D",
+            fillOpacity: 0.06,
+            interactive: false,
+          }),
+        );
+      }
       const marker = L.marker(center, {
         pane: "incidentMarkers",
         icon: incidentIcon,

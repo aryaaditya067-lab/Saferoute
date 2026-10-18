@@ -29,14 +29,14 @@ export const userIcon = L.divIcon({
 /** Red pin with a speech bubble for a reported crime (a news report). */
 export const incidentIcon = L.divIcon({
   className: "sr-marker",
-  html: `<div class="sr-incident" aria-hidden="true"><svg viewBox="0 0 30 38" width="30" height="38">
+  html: `<div class="sr-incident" aria-hidden="true"><svg viewBox="0 0 30 38" width="22" height="28">
       <path d="M15 1C7.3 1 1 7.1 1 14.6 1 24.9 15 37 15 37s14-12.1 14-22.4C29 7.1 22.7 1 15 1z" fill="#DC2626" stroke="#FFFDF8" stroke-width="2"/>
       <path d="M9.5 9.5h11a1.8 1.8 0 0 1 1.8 1.8v5.6a1.8 1.8 0 0 1-1.8 1.8h-5.4l-3.6 3v-3H9.5a1.8 1.8 0 0 1-1.8-1.8v-5.6a1.8 1.8 0 0 1 1.8-1.8z" fill="#FFFDF8"/>
       <circle cx="11.6" cy="14.1" r="1" fill="#DC2626"/><circle cx="15" cy="14.1" r="1" fill="#DC2626"/><circle cx="18.4" cy="14.1" r="1" fill="#DC2626"/>
     </svg></div>`,
-  iconSize: [30, 38],
-  iconAnchor: [15, 37],
-  popupAnchor: [0, -34],
+  iconSize: [22, 28],
+  iconAnchor: [11, 27],
+  popupAnchor: [0, -25],
 });
 
 /** Metro station marker. */

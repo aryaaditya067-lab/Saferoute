@@ -405,7 +405,7 @@ export function SafeRouteApp() {
             : "";
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden overscroll-none bg-cream">
+    <main className="sr-app relative h-dvh w-full overflow-hidden overscroll-none bg-cream text-ink">
       <MapView
         pickup={pickup}
         destination={destination}
@@ -433,7 +433,7 @@ export function SafeRouteApp() {
         ref={headerRef}
         className="pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-[1100] md:top-4 md:left-4"
       >
-        <div className="pointer-events-auto inline-flex items-center gap-2 rounded-2xl border border-line bg-paper/95 py-1.5 pr-3.5 pl-1.5 shadow-float backdrop-blur">
+        <div className="sr-float-in pointer-events-auto inline-flex items-center gap-2 rounded-2xl border border-line bg-paper/95 py-1.5 pr-3.5 pl-1.5 shadow-float backdrop-blur">
           <LogoMark size={30} />
           <span className="text-[15px] font-semibold tracking-tight text-ink">SafeRoute</span>
           <Link
@@ -448,7 +448,7 @@ export function SafeRouteApp() {
       </header>
 
       {crimeLayer.enabled && (
-        <div className="pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(17.5rem,calc(100vw-1.5rem))] flex-col items-stretch gap-2 md:top-4 md:right-4 md:w-72">
+        <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(13.5rem,calc(100vw-10.5rem))] flex-col items-stretch gap-2 sm:w-[min(17.5rem,calc(100vw-12rem))] md:top-4 md:right-4 md:w-72">
           <section
             aria-label="Map layers"
             className="pointer-events-auto rounded-2xl border border-line bg-paper/95 p-1.5 shadow-float backdrop-blur"

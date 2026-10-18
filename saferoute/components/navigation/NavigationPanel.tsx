@@ -74,7 +74,7 @@ export function NavigationPanel(props: NavigationPanelProps) {
     <aside
       ref={panelRef}
       aria-label="Trip planner"
-      className="fixed inset-x-0 bottom-0 z-[1100] flex max-h-[78dvh] flex-col rounded-t-3xl border-t border-line bg-paper shadow-sheet md:absolute md:top-[76px] md:bottom-auto md:left-4 md:max-h-[calc(100dvh-92px)] md:w-[400px] md:rounded-3xl md:border md:shadow-float"
+      className="sr-panel-in fixed inset-x-0 bottom-0 z-[1100] flex max-h-[78dvh] flex-col rounded-t-[28px] border-t border-line bg-paper shadow-sheet md:absolute md:top-[76px] md:bottom-auto md:left-4 md:max-h-[calc(100dvh-92px)] md:w-[400px] md:rounded-[28px] md:border md:border-white/70 md:bg-paper/90 md:shadow-[0_1px_2px_rgb(36_35_33/0.06),0_24px_60px_-18px_rgb(36_35_33/0.35)] md:ring-1 md:ring-line/60 md:backdrop-blur-xl"
     >
       {/* Mobile sheet handle */}
       <button
@@ -137,12 +137,12 @@ export function NavigationPanel(props: NavigationPanelProps) {
       )}
 
       <div
-        className={`flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))] scrollbar-thin md:flex md:p-5 ${
+        className={`sr-stagger flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-1 pb-[max(1rem,env(safe-area-inset-bottom))] scrollbar-thin md:flex md:p-5 ${
           collapsed ? "hidden" : "flex"
         }`}
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">Where do you want to go?</h1>
+          <h1 className="sr-display text-[22px] font-semibold tracking-[-0.02em] text-ink">Where do you want to go?</h1>
           <p className="mt-0.5 text-[13px] text-ink-muted">Compare the fastest and the safest way there.</p>
         </div>
 
@@ -243,7 +243,7 @@ export function NavigationPanel(props: NavigationPanelProps) {
                 role="radio"
                 aria-checked={active}
                 onClick={() => props.onModeChange(option.id)}
-                className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                   active ? "bg-paper text-ink shadow-sm" : "text-ink-soft hover:text-ink"
                 }`}
               >
@@ -258,7 +258,7 @@ export function NavigationPanel(props: NavigationPanelProps) {
           type="button"
           onClick={props.onFindRoutes}
           disabled={loading}
-          className="inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-brand text-[15px] font-semibold text-paper shadow-[0_6px_16px_-6px_rgb(232_117_36/0.6)] transition-colors hover:bg-brand-strong active:translate-y-px disabled:cursor-wait disabled:opacity-80"
+          className="sr-sheen inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-linear-to-b from-[#f08a3c] to-[#e2701f] text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.28),0_12px_28px_-12px_rgb(232_117_36/0.9)] transition-[transform,filter] hover:brightness-105 active:scale-[0.985] disabled:cursor-wait disabled:opacity-80"
         >
           {loading ? <Spinner className="size-[18px]" /> : <RouteIcon className="size-[18px]" aria-hidden="true" />}
           {loading ? "Finding routes…" : "Find Safer Routes"}

@@ -91,7 +91,7 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
 
       {state.response.transit && <MetroCard transit={state.response.transit} />}
 
-      <ul className="flex flex-col gap-2" role="radiogroup" aria-label="Available routes">
+      <ul className="sr-stagger flex flex-col gap-2" role="radiogroup" aria-label="Available routes">
         {shown.map((route) => {
           const note = noteFor(route);
           const selected = route.id === selectedId;
@@ -104,8 +104,10 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
           return (
             <li key={route.id}>
               <div
-                className={`rounded-xl border transition-colors ${
-                  selected ? "border-brand bg-brand-soft/40" : "border-line bg-paper hover:border-line-strong hover:bg-cream/60"
+                className={`rounded-2xl border transition-all duration-200 ${
+                  selected
+                    ? "border-brand bg-brand-soft/40 shadow-[0_10px_24px_-14px_rgb(232_117_36/0.7)]"
+                    : "border-line bg-paper hover:-translate-y-px hover:border-line-strong hover:bg-cream/60 hover:shadow-[0_8px_20px_-14px_rgb(36_35_33/0.4)]"
                 }`}
               >
                 <button

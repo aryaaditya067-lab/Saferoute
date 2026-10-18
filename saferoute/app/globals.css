@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-geist-sans), "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   --color-cream: #f8f4ec;
   --color-cream-deep: #f1ebdf;
@@ -574,3 +574,46 @@ html:has(.sr-about) body {
   .sr-mask > span, .sr-shimmer { animation: none; }
   .sr-sheen::after { display: none; }
 }
+
+/* ---- Map app: motion ------------------------------------------------------------ */
+
+/* The trip planner slides in on load: up from the bottom on phones, in from the left on wide screens. */
+@keyframes sr-panel-up { from { opacity: 0; transform: translate3d(0, 40px, 0); } to { opacity: 1; transform: none; } }
+@keyframes sr-panel-left { from { opacity: 0; transform: translate3d(-24px, 0, 0); } to { opacity: 1; transform: none; } }
+.sr-panel-in { animation: sr-panel-up 600ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (min-width: 768px) {
+  .sr-panel-in { animation-name: sr-panel-left; }
+}
+
+/* Children of .sr-stagger fade up one after another (planner sections, route cards). */
+@keyframes sr-fade-up { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+.sr-stagger > * { animation: sr-fade-up 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sr-stagger > :nth-child(1) { animation-delay: 80ms; }
+.sr-stagger > :nth-child(2) { animation-delay: 140ms; }
+.sr-stagger > :nth-child(3) { animation-delay: 200ms; }
+.sr-stagger > :nth-child(4) { animation-delay: 260ms; }
+.sr-stagger > :nth-child(5) { animation-delay: 320ms; }
+.sr-stagger > :nth-child(n + 6) { animation-delay: 380ms; }
+
+/* Map layer chips and floating controls ease in after the planner. */
+.sr-float-in { animation: sr-fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) 250ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sr-panel-in, .sr-stagger > *, .sr-float-in { animation: none; }
+}
+
+/* Numbered bubble for a reported-crime area when the map is zoomed out. */
+.sr-hot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #f26b6b, #d93636);
+  color: #fff;
+  font: 700 11px/1 var(--font-sans);
+  border: 2px solid #fffdf8;
+  box-shadow: 0 0 0 4px rgb(229 72 77 / 0.18), 0 4px 10px rgb(150 30 30 / 0.35);
+  cursor: pointer;
+  transition: transform 160ms ease;
+}
+.sr-hot:hover { transform: scale(1.12); }

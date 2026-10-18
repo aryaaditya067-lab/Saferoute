@@ -49,7 +49,7 @@ The load works like this:
 
 Each URL is read once, and every incident links to its article. After the load, the scheduled job (every 3 hours) adds the last two weeks the same way. Set `SAFEROUTE_USE_MIMO=true` to use the slower MiMo reader instead.
 
-The map shades ~1 km squares by how much crime was reported there; zoom in (level 13+) to see each report.
+The map shades ~1 km squares by how much crime was reported there; zoom in (level 14+) to see each report.
 
 ## Night-time brightness from NASA (optional)
 

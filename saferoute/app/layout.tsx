@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/inter";
+import "@fontsource-variable/bricolage-grotesque";
+import { GeistSans } from "geist/font/sans";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
@@ -19,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={GeistSans.variable}>
       <body className="font-sans">{children}</body>
     </html>
   );

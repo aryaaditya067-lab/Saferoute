@@ -21,10 +21,10 @@ interface LayerToggleProps {
 export function LayerToggle(p: LayerToggleProps) {
   let detail: React.ReactNode;
   if (p.status === "loading") detail = <Spinner className="size-3.5 text-ink-muted" />;
-  else if (p.status === "zoomed-out") detail = <span className="text-ink-muted">Zoom in</span>;
+  else if (p.status === "zoomed-out") detail = <span className="hidden text-ink-muted sm:inline">Zoom in</span>;
   else if (p.status === "error") detail = <CircleAlert className="size-3.5 text-danger" aria-hidden="true" />;
-  else if (p.status === "ready" && p.emptyText) detail = <span className="text-ink-muted">{p.emptyText}</span>;
-  else if (p.status === "ready") detail = <span className="tabular-nums">{p.count} in view</span>;
+  else if (p.status === "ready" && p.emptyText) detail = <span className="hidden text-ink-muted sm:inline">{p.emptyText}</span>;
+  else if (p.status === "ready") detail = <span className="hidden tabular-nums sm:inline">{p.count} in view</span>;
 
   return (
     <button
