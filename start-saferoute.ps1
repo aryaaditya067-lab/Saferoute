@@ -19,11 +19,26 @@ if (-not (Test-Path $stamp) -or (Get-Item $lock).LastWriteTime -gt (Get-Item $st
     Pop-Location
 }
 
+# Admin token: never stored in the repo. Uses SAFEROUTE_ADMIN_TOKEN if set, otherwise a random
+# token made once on this PC and kept in .saferoute-admin-token (git ignores that file).
+$tokenFile = Join-Path $root ".saferoute-admin-token"
+if ($env:SAFEROUTE_ADMIN_TOKEN) {
+    $adminToken = $env:SAFEROUTE_ADMIN_TOKEN
+} else {
+    if (-not (Test-Path $tokenFile)) {
+        $bytes = New-Object byte[] 32
+        [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+        Set-Content -Path $tokenFile -Value (($bytes | ForEach-Object { $_.ToString("x2") }) -join "") -NoNewline -Encoding ascii
+        Write-Host "Naya admin token bana: $tokenFile" -ForegroundColor Yellow
+    }
+    $adminToken = (Get-Content $tokenFile -Raw).Trim()
+}
+
 Write-Host "1/3 Backend start ho raha hai (naya window)..." -ForegroundColor Yellow
 $backendCmd = @"
 `$env:JAVA_HOME = '$jbr'
 `$env:Path = "`$env:JAVA_HOME\bin;`$env:Path"
-`$env:SAFEROUTE_ADMIN_TOKEN = 'Holymolly'
+`$env:SAFEROUTE_ADMIN_TOKEN = '$adminToken'
 Set-Location '$backend'
 .\gradlew.bat --stop
 .\gradlew.bat bootRun
@@ -48,7 +63,7 @@ try {
     $bf = Invoke-RestMethod "http://localhost:8080/api/v1/admin/backfill" -TimeoutSec 5
     Write-Host "Abhi crimes stored: $($status.incidentsInWindow)"
     if ($bf.state -ne "running" -and $status.incidentsInWindow -lt 50) {
-        Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/backfill?months=12" -Headers @{ "X-Admin-Token" = "Holymolly" } | Out-Null
+        Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/backfill?months=12" -Headers @{ "X-Admin-Token" = $adminToken } | Out-Null
         Write-Host "1 saal ka crime data load hona shuru (background mein chalega)." -ForegroundColor Green
     }
 } catch { Write-Host "Backfill check skip: $($_.Exception.Message)" }
