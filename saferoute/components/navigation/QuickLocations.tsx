@@ -53,10 +53,10 @@ export function QuickLocations({ savedPlaces, onUse, onSet, onManage }: QuickLoc
                 }
               }}
               title={saved ? `${saved.location.name}${saved.location.address ? `, ${saved.location.address}` : ""}` : `${SAVED_PLACE_LABELS[key]} isn't set`}
-              className={`inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors ${
+              className={`inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-[14px] font-medium transition-colors ${
                 saved
-                  ? "border-line bg-paper text-ink hover:border-line-strong hover:bg-cream"
-                  : "border-dashed border-line-strong bg-transparent text-ink-muted hover:bg-cream"
+                  ? "bg-[rgb(118_118_128/0.1)] text-ink hover:bg-[rgb(118_118_128/0.16)]"
+                  : "border border-dashed border-line-strong bg-transparent text-ink-muted hover:bg-[rgb(118_118_128/0.08)]"
               }`}
             >
               <Icon className={`size-4 shrink-0 ${saved ? "text-brand" : ""}`} aria-hidden="true" />

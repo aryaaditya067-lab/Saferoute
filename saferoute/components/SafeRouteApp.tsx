@@ -433,7 +433,7 @@ export function SafeRouteApp() {
         ref={headerRef}
         className="pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-[1100] md:top-4 md:left-4"
       >
-        <div className="sr-float-in pointer-events-auto inline-flex items-center gap-2 rounded-2xl border border-line bg-paper/95 py-1.5 pr-3.5 pl-1.5 shadow-float backdrop-blur">
+        <div className="sr-float-in sr-glass pointer-events-auto inline-flex items-center gap-2 rounded-full py-1.5 pr-3.5 pl-1.5 shadow-control">
           <LogoMark size={30} />
           <span className="text-[15px] font-semibold tracking-tight text-ink">SafeRoute</span>
           <Link
@@ -448,10 +448,10 @@ export function SafeRouteApp() {
       </header>
 
       {crimeLayer.enabled && (
-        <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(13.5rem,calc(100vw-10.5rem))] flex-col items-stretch gap-2 sm:w-[min(17.5rem,calc(100vw-12rem))] md:top-4 md:right-4 md:w-72">
+        <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(12.5rem,calc(100vw-11.75rem))] flex-col items-stretch gap-2 sm:w-[min(17.5rem,calc(100vw-12rem))] md:top-4 md:right-4 md:w-80">
           <section
             aria-label="Map layers"
-            className="pointer-events-auto rounded-2xl border border-line bg-paper/95 p-1.5 shadow-float backdrop-blur"
+            className="sr-glass pointer-events-auto rounded-[18px] p-1.5 shadow-float"
           >
             <h2 className="px-2.5 pt-1 pb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">Map layers</h2>
             <CrimeLayerToggle
@@ -480,10 +480,17 @@ export function SafeRouteApp() {
             <button
               type="button"
               onClick={() => (pickTarget?.kind === "report" ? cancelPick() : startPick({ kind: "report" }))}
-              className="pointer-events-auto inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#7c3aed] px-3.5 text-sm font-semibold text-white shadow-float hover:bg-[#6d28d9]"
+              className="pointer-events-auto inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-4 text-[15px] font-semibold text-white shadow-float transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98]"
             >
               <MessageSquarePlus className="size-4" aria-hidden="true" />
-              {pickTarget?.kind === "report" ? "Cancel report" : "Report a safety issue"}
+              {pickTarget?.kind === "report" ? (
+                "Cancel report"
+              ) : (
+                <>
+                  <span className="sm:hidden">Report issue</span>
+                  <span className="hidden sm:inline">Report a safety issue</span>
+                </>
+              )}
             </button>
           )}
         </div>

@@ -32,7 +32,7 @@ export function LayerToggle(p: LayerToggleProps) {
       onClick={p.status === "error" ? p.onRetry : p.onToggle}
       aria-pressed={p.visible}
       title={p.status === "error" ? `${p.error} Click to retry.` : p.title}
-      className="flex min-h-10 w-full items-center gap-2.5 rounded-xl px-2.5 text-left text-sm font-medium text-ink transition-colors hover:bg-cream"
+      className="flex min-h-11 w-full items-center gap-2.5 rounded-[12px] px-2.5 text-left text-[14px] font-medium text-ink transition-colors hover:bg-black/[0.04]"
     >
       <span className={`size-2.5 shrink-0 rounded-full ${p.visible ? p.dotClass : "bg-line-strong"}`} aria-hidden="true" />
       <span className="flex-1 truncate">
@@ -48,11 +48,11 @@ export function LayerToggle(p: LayerToggleProps) {
 export function Switch({ on, dark = false }: { on: boolean; dark?: boolean }) {
   return (
     <span
-      className={`relative inline-block h-5 w-9 shrink-0 rounded-full transition-colors ${on ? (dark ? "bg-[#fbbf24]" : "bg-brand") : "bg-line-strong"}`}
+      className={`relative inline-block h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ${on ? (dark ? "bg-[#fbbf24]" : "bg-brand") : "bg-[rgb(120_120_128/0.16)]"}`}
       aria-hidden="true"
     >
       <span
-        className={`absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-[left] duration-200 ${on ? "left-[18px]" : "left-0.5"}`}
+        className={`absolute top-[2px] size-[18px] rounded-full bg-white shadow-[0_3px_8px_rgb(0_0_0/0.15),0_1px_1px_rgb(0_0_0/0.16)] transition-[left] duration-200 ${on ? "left-[18px]" : "left-[2px]"}`}
       />
     </span>
   );

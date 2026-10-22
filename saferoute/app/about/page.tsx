@@ -1,7 +1,3 @@
-import "@fontsource-variable/bricolage-grotesque";
-import "@fontsource/instrument-serif/400-italic.css";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import { ArrowRight } from "lucide-react";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
@@ -81,7 +77,7 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
 
 export default function AboutPage() {
   return (
-    <div className={`sr-about relative min-h-dvh bg-[#0b0d12] text-white antialiased ${GeistSans.className} ${GeistMono.variable}`}>
+    <div className="sr-about relative min-h-dvh bg-[#0b0d12] font-sans text-white antialiased">
       <CityBackdrop />
       {/* Darkens the scene where the text sits: from the left on wide screens, from the top on phones. */}
       <div

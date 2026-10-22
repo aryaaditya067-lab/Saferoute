@@ -1,28 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-geist-sans), "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Apple's system font (SF Pro) on Apple devices; Inter, its closest open match, everywhere else.
+     SF Pro itself can't be bundled: its licence only covers Apple platforms. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter Variable", "Segoe UI", Roboto, ui-sans-serif, sans-serif;
 
-  --color-cream: #f8f4ec;
-  --color-cream-deep: #f1ebdf;
-  --color-paper: #fffdf8;
+  /* Neutral, Apple-style greys with the SafeRoute orange as the one accent. */
+  --color-cream: #f5f5f7;
+  --color-cream-deep: #e8e8ed;
+  --color-paper: #ffffff;
   --color-brand: #e87524;
-  --color-brand-strong: #cf6519;
-  --color-brand-soft: #fcebdc;
-  --color-ink: #242321;
-  --color-ink-soft: #57534c;
-  --color-ink-muted: #8a857b;
-  --color-line: #e8e1d3;
-  --color-line-strong: #d9d0bf;
-  --color-danger: #b42318;
-  --color-danger-soft: #fdeceb;
-  --color-locate: #2f6fed;
-  --color-safe: #1f7a4d;
-  --color-safe-soft: #e4f3ea;
+  --color-brand-strong: #c95f12;
+  --color-brand-soft: #fdf0e6;
+  --color-ink: #1d1d1f;
+  --color-ink-soft: #424245;
+  --color-ink-muted: #6e6e73;
+  --color-line: rgb(0 0 0 / 0.08);
+  --color-line-strong: rgb(0 0 0 / 0.14);
+  --color-danger: #d70015;
+  --color-danger-soft: #fff0f1;
+  --color-locate: #0071e3;
+  --color-safe: #248a3d;
+  --color-safe-soft: #e9f6ec;
 
-  --shadow-float: 0 1px 2px rgb(36 35 33 / 0.06), 0 8px 24px -6px rgb(36 35 33 / 0.16);
-  --shadow-sheet: 0 -6px 28px -8px rgb(36 35 33 / 0.22);
-  --shadow-control: 0 1px 2px rgb(36 35 33 / 0.08), 0 4px 12px -4px rgb(36 35 33 / 0.18);
+  --shadow-float: 0 0 0 0.5px rgb(0 0 0 / 0.04), 0 2px 6px rgb(0 0 0 / 0.04), 0 12px 32px rgb(0 0 0 / 0.1);
+  --shadow-sheet: 0 -8px 30px rgb(0 0 0 / 0.12);
+  --shadow-control: 0 0 0 0.5px rgb(0 0 0 / 0.05), 0 4px 14px rgb(0 0 0 / 0.1);
 
   --animate-fade-in: fade-in 160ms ease-out;
   --animate-slide-down: slide-down 180ms ease-out;
@@ -489,20 +492,20 @@ html:has(.sr-about) body {
   color: #fff;
 }
 .sr-serif {
-  font-family: "Instrument Serif", Georgia, serif;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  /* Accent words: same Apple display face, set apart by colour rather than an italic serif. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Variable", "Segoe UI", sans-serif;
+  font-style: normal;
+  font-weight: 600;
 }
 
 /* ---- About page: type and motion details -------------------------------------- */
 
 .sr-display {
-  font-family: "Bricolage Grotesque Variable", var(--font-geist-sans), ui-sans-serif, sans-serif;
-  font-optical-sizing: auto;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Variable", "Segoe UI", sans-serif;
+  letter-spacing: -0.025em;
 }
 .sr-mono {
-  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* Headline lines slide up from behind a mask. */
@@ -617,3 +620,44 @@ html:has(.sr-about) body {
   transition: transform 160ms ease;
 }
 .sr-hot:hover { transform: scale(1.12); }
+
+/* ---- Map app: Apple-style materials ------------------------------------------- */
+
+/* Frosted "regular material": translucent white, blurred and slightly saturated map behind. */
+.sr-glass {
+  background: rgb(255 255 255 / 0.78);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+  border: 0.5px solid rgb(0 0 0 / 0.08);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sr-glass { background: #fff; }
+}
+
+/* Zoom and locate buttons as frosted, rounded squares. */
+.saferoute-map .leaflet-control-zoom,
+.saferoute-map .saferoute-locate {
+  border: 0.5px solid rgb(0 0 0 / 0.08) !important;
+  border-radius: 12px !important;
+  background: rgb(255 255 255 / 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+.saferoute-map .leaflet-control-zoom a,
+.saferoute-map .saferoute-locate button {
+  background: transparent;
+  font-weight: 400;
+}
+.saferoute-map .leaflet-control-zoom a:hover,
+.saferoute-map .saferoute-locate button:hover {
+  background: rgb(0 0 0 / 0.04);
+}
+.saferoute-map .leaflet-control-attribution {
+  background: rgb(255 255 255 / 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.saferoute-map .leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  border: 0.5px solid rgb(0 0 0 / 0.08);
+}

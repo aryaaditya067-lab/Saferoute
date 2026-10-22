@@ -104,10 +104,10 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
           return (
             <li key={route.id}>
               <div
-                className={`rounded-2xl border transition-all duration-200 ${
+                className={`rounded-[16px] border transition-all duration-200 ${
                   selected
-                    ? "border-brand bg-brand-soft/40 shadow-[0_10px_24px_-14px_rgb(232_117_36/0.7)]"
-                    : "border-line bg-paper hover:-translate-y-px hover:border-line-strong hover:bg-cream/60 hover:shadow-[0_8px_20px_-14px_rgb(36_35_33/0.4)]"
+                    ? "border-transparent bg-paper shadow-[0_0_0_2px_var(--color-brand),0_8px_24px_rgb(0_0_0/0.08)]"
+                    : "border-line bg-paper hover:-translate-y-px hover:shadow-[0_8px_24px_rgb(0_0_0/0.08)]"
                 }`}
               >
                 <button
