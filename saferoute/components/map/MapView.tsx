@@ -3,7 +3,6 @@
 import L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import { hotspotGrid } from "@/lib/hotspots";
-import { nightLightImage } from "@/lib/nightLightImage";
 import { config } from "@/lib/config";
 import { formatCoordinates, normalizeCoordinates } from "@/lib/geo";
 import { readViewport, writeViewport } from "@/lib/viewport";
@@ -17,7 +16,6 @@ import type {
   Location,
   MapBounds,
   MapInsets,
-  NightLightsResponse,
   PickTarget,
   Route,
   TransitStation,
@@ -47,8 +45,6 @@ export interface MapViewProps {
   communityConfirmThreshold: number;
   /** Metro stations to show (walking trips). */
   stations?: TransitStation[];
-  /** NASA night-time brightness; when set, the map switches to Night view. */
-  nightLights?: NightLightsResponse | null;
   /** Present when community reporting is available. */
   onReportAt?: (point: Coordinates) => void;
   onSelectRoute: (id: string) => void;
@@ -236,9 +232,6 @@ export default function MapView(props: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const incidentLayerRef = useRef<L.LayerGroup | null>(null);
-  const nightOverlayRef = useRef<L.ImageOverlay | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const tileUrlRef = useRef<string>(config.tileUrl);
   const communityLayerRef = useRef<L.LayerGroup | null>(null);
   const metroLayerRef = useRef<L.LayerGroup | null>(null);
   const routeAnimRef = useRef<number | null>(null);
@@ -273,7 +266,7 @@ export default function MapView(props: MapViewProps) {
     });
 
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>');
-    tileLayerRef.current = L.tileLayer(config.tileUrl, {
+    L.tileLayer(config.tileUrl, {
       maxZoom: 19,
       attribution: config.tileAttribution,
       crossOrigin: true,
@@ -291,7 +284,6 @@ export default function MapView(props: MapViewProps) {
     locateControlRef.current = locate;
 
     // Reported-crime areas sit under the routes; their 💬 markers sit above them.
-    map.createPane("nightLights").style.zIndex = "300";
     map.createPane("incidentAreas").style.zIndex = "350";
     map.createPane("incidentMarkers").style.zIndex = "620";
     incidentLayerRef.current = L.layerGroup().addTo(map);
@@ -382,10 +374,8 @@ export default function MapView(props: MapViewProps) {
       mapRef.current = null;
       routeLayerRef.current = null;
       incidentLayerRef.current = null;
-      nightOverlayRef.current = null;
       communityLayerRef.current = null;
       metroLayerRef.current = null;
-      tileLayerRef.current = null;
       if (routeAnimRef.current != null) cancelAnimationFrame(routeAnimRef.current);
       pickupMarkerRef.current = null;
       destinationMarkerRef.current = null;
@@ -606,33 +596,6 @@ export default function MapView(props: MapViewProps) {
       layer.addLayer(marker);
     }
   }, [props.incidents, showIncidentDetail]);
-
-  // ---- Night view (NASA Black Marble) -------------------------------------------
-  const nightLights = props.nightLights ?? null;
-  useEffect(() => {
-    const map = mapRef.current;
-    const container = containerRef.current;
-    if (!map || !container) return;
-    nightOverlayRef.current?.remove();
-    nightOverlayRef.current = null;
-    const url = nightLights ? nightLightImage(nightLights) : null;
-    container.classList.toggle("is-night", nightLights != null);
-    const wantUrl = nightLights && config.tileUrlNight ? config.tileUrlNight : config.tileUrl;
-    if (tileLayerRef.current && tileUrlRef.current !== wantUrl) {
-      tileLayerRef.current.setUrl(wantUrl);
-      tileUrlRef.current = wantUrl;
-    }
-    if (url && nightLights && nightLights.south != null && nightLights.west != null && nightLights.north != null && nightLights.east != null) {
-      nightOverlayRef.current = L.imageOverlay(
-        url,
-        [
-          [nightLights.south, nightLights.west],
-          [nightLights.north, nightLights.east],
-        ],
-        { pane: "nightLights", interactive: false, className: "sr-night-overlay", alt: "" },
-      ).addTo(map);
-    }
-  }, [nightLights]);
 
   // ---- Community spots ---------------------------------------------------------
   const threshold = props.communityConfirmThreshold;

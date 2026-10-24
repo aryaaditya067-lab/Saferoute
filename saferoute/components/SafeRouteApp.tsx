@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { ReportDialog } from "@/components/community/ReportDialog";
 import { CrimeLayerToggle } from "@/components/map/CrimeLayerToggle";
 import { LayerToggle } from "@/components/map/LayerToggle";
-import { NightViewToggle } from "@/components/map/NightViewToggle";
+import { MapLayers } from "@/components/map/MapLayers";
 import type { MapFocus, PinKind } from "@/components/map/MapView";
 import { NavigationPanel } from "@/components/navigation/NavigationPanel";
 import { SavedPlacesDialog, savedPlaceSubtitle } from "@/components/navigation/SavedPlacesDialog";
@@ -19,7 +19,6 @@ import { createId, formatCoordinates } from "@/lib/geo";
 import { useOnlineStatus, useOverlayInsets } from "@/lib/hooks";
 import { useCommunitySpots } from "@/lib/useCommunitySpots";
 import { useIncidents } from "@/lib/useIncidents";
-import { useNightLights } from "@/lib/useNightLights";
 import {
   getSavedPlacesServerSnapshot,
   getSavedPlacesSnapshot,
@@ -75,7 +74,6 @@ export function SafeRouteApp() {
   const [showCrimes, setShowCrimes] = useState(true);
   const communityLayer = useCommunitySpots();
   const [showCommunity, setShowCommunity] = useState(true);
-  const nightLayer = useNightLights();
   const [reportAt, setReportAt] = useState<{ point: Coordinates; label: string | null } | null>(null);
   const online = useOnlineStatus();
   const savedPlaces = useSyncExternalStore(subscribeSavedPlaces, getSavedPlacesSnapshot, getSavedPlacesServerSnapshot);
@@ -419,7 +417,6 @@ export function SafeRouteApp() {
         incidents={showCrimes ? crimeLayer.incidents : []}
         communitySpots={showCommunity ? communityLayer.spots : []}
         communityConfirmThreshold={communityLayer.confirmThreshold ?? 3}
-        nightLights={nightLayer.visible ? nightLayer.data : null}
         stations={routeState.status === "success" ? (routeState.response.transit?.stations ?? undefined) : undefined}
         onReportAt={communityLayer.enabled ? openReport : undefined}
         onSelectRoute={setSelectedRouteId}
@@ -448,12 +445,8 @@ export function SafeRouteApp() {
       </header>
 
       {crimeLayer.enabled && (
-        <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(12.5rem,calc(100vw-11.75rem))] flex-col items-stretch gap-2 sm:w-[min(17.5rem,calc(100vw-12rem))] md:top-4 md:right-4 md:w-80">
-          <section
-            aria-label="Map layers"
-            className="sr-glass pointer-events-auto rounded-[18px] p-1.5 shadow-float"
-          >
-            <h2 className="px-2.5 pt-1 pb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">Map layers</h2>
+        <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(17rem,calc(100vw-1.5rem))] flex-col items-end gap-2 md:top-4 md:right-4 md:w-80 md:items-stretch">
+          <MapLayers activeCount={(showCrimes ? 1 : 0) + (communityLayer.enabled && showCommunity ? 1 : 0)}>
             <CrimeLayerToggle
               layer={crimeLayer}
               visible={showCrimes}
@@ -474,20 +467,24 @@ export function SafeRouteApp() {
                 onRetry={communityLayer.refresh}
               />
             )}
-            {nightLayer.enabled && <NightViewToggle layer={nightLayer} />}
-          </section>
+          </MapLayers>
           {communityLayer.enabled && (
             <button
               type="button"
               onClick={() => (pickTarget?.kind === "report" ? cancelPick() : startPick({ kind: "report" }))}
-              className="pointer-events-auto inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-4 text-[15px] font-semibold text-white shadow-float transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98]"
+              aria-pressed={pickTarget?.kind === "report"}
+              className={`pointer-events-auto inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-[14px] font-semibold shadow-control transition-[background-color,transform] duration-150 active:scale-[0.98] md:h-11 md:text-[15px] ${
+                pickTarget?.kind === "report" ? "bg-ink text-white" : "sr-glass text-ink hover:bg-white"
+              }`}
             >
-              <MessageSquarePlus className="size-4" aria-hidden="true" />
               {pickTarget?.kind === "report" ? (
-                "Cancel report"
+                <>
+                  <X className="size-4" aria-hidden="true" /> Cancel report
+                </>
               ) : (
                 <>
-                  <span className="sm:hidden">Report issue</span>
+                  <MessageSquarePlus className="size-4 text-[#7c3aed]" aria-hidden="true" />
+                  <span className="sm:hidden">Report</span>
                   <span className="hidden sm:inline">Report a safety issue</span>
                 </>
               )}
@@ -497,7 +494,7 @@ export function SafeRouteApp() {
       )}
 
       <div
-        className="pointer-events-none fixed inset-x-3 top-[calc(max(0.75rem,env(safe-area-inset-top))+250px)] z-[1200] flex flex-col items-center gap-2 md:top-4 md:right-[312px] md:left-[432px]"
+        className="pointer-events-none fixed inset-x-3 top-[calc(max(0.75rem,env(safe-area-inset-top))+7rem)] z-[1200] flex flex-col items-center gap-2 md:top-4 md:right-[352px] md:left-[432px]"
         aria-live="polite"
       >
         {!online && (

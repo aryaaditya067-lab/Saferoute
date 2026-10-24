@@ -24,7 +24,7 @@ export function QuickLocations({ savedPlaces, onUse, onSet, onManage }: QuickLoc
   return (
     <section aria-labelledby="quick-locations-heading">
       <div className="mb-2 flex items-center justify-between">
-        <h2 id="quick-locations-heading" className="text-xs font-semibold tracking-wide text-ink-muted uppercase">
+        <h2 id="quick-locations-heading" className="text-[13px] font-semibold text-ink-muted">
           Saved places
         </h2>
         <button

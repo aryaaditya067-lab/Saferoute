@@ -40,7 +40,7 @@ The current version covers Bengaluru and supports driving, cycling and walking. 
 |---|---|
 | Three-route comparison | Fastest, Balanced and Safest routes for each trip, each with safety facts |
 | Crime map | Soft red hotspots where reported crimes cluster; zoom in to see each report as a pin linked to its news article |
-| Night view | Shows how bright each part of the city is at night using NASA satellite data |
+| Dark stretches | Marks the parts of the selected route that are dark at night, using NASA satellite data |
 | Community reports | Users report spots such as "poorly lit" or "harassment"; a spot counts only after 3 different people report it |
 | Walking mode | Nearest metro station to the start and end with today's hours, places open right now along the route, and dark stretches marked on the map |
 | Explainable ranking | "How is Safest chosen?" lists every factor and its weight for that trip |
@@ -168,7 +168,7 @@ Map apps optimise time, not safety. Walkers at night can't see dark streets, rec
 Three routes for every trip — Fastest, Balanced, Safest — each explained with real, sourced facts. Missing data is shown as missing, never guessed.
 
 **Slide 4 — Key Features**
-Crime hotspots with article links · NASA Night view · Community reports (3-person confirmation) · Walking mode (metro, open now, dark stretches) · Animated route.
+Crime hotspots with article links · NASA dark stretches on routes · Community reports (3-person confirmation) · Walking mode (metro, open now, dark stretches) · Animated route.
 
 **Slide 5 — Data Sources**
 GDELT news (crime) · NASA Black Marble 2024 (night lights) · OpenStreetMap (roads, lights, shops, police, hospitals, metro) · OSRM (routing) · Photon (search) · Community reports.
@@ -186,7 +186,7 @@ Next.js + React + Tailwind + Leaflet frontend; Java Spring Boot backend; H2 data
 News ≠ police records (clearly labelled) · community confirmation and expiry · abuse limits · salted hashes only · no sign-up.
 
 **Slide 10 — Live Demo**
-Crime hotspots → Night view → walking trip with animated route → Safest route facts and dark stretches → metro card → submit a community report.
+Crime hotspots → walking trip with animated route → Safest route facts and dark stretches → metro card → submit a community report.
 
 **Slide 11 — Challenges Solved**
 Busy map servers, via-point spurs, dark "safe" routes, long-trip timeouts, sparse crime headlines.

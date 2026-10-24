@@ -240,20 +240,3 @@ export interface MapInsets {
   bottom: number;
   left: number;
 }
-
-/** NASA Black Marble night-time brightness raster for the map's Night view (GET /api/v1/night-lights). */
-export interface NightLightsResponse {
-  available: boolean;
-  source: string | null;
-  note: string | null;
-  south: number | null;
-  west: number | null;
-  north: number | null;
-  east: number | null;
-  rows: number;
-  cols: number;
-  /** Row-major, north to south; null where there is no data. nW/cm²/sr. */
-  values: Array<number | null>;
-  darkThreshold: number;
-  brightReference: number;
-}

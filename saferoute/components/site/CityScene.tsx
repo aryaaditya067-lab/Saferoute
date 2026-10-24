@@ -3,22 +3,23 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { buildCity } from "./cityBuild";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { addRouteRibbon, arrowGeometry, headingYaw, radialGlowTexture } from "./sceneFx";
+import { addRouteRibbon, arrowGeometry, headingYaw, pinGeometry, radialGlowTexture } from "./sceneFx";
 
 /**
- * Detailed low-poly city behind the about page (see cityBuild). A reported-crime area glows red,
- * the fastest route cuts straight through it and the safest route goes round by
- * the lit streets. The camera follows the page scroll through [data-scene] sections.
+ * Daylit city behind the about page (see cityBuild). A reported-crime area glows red,
+ * the fastest route cuts straight through it and the safest route goes round past the
+ * police station and the hospital. The camera follows the page scroll through the
+ * [data-scene] sections.
+ *
+ * Kept light on the GPU: shadows are rendered once, there is no post-processing, and
+ * the resolution steps down on its own when frames get slow.
  */
 
-/** Night sky; matches the about page background. */
-const BG = 0x0b0d12;
+/** Haze colour; matches the page background. */
+const BG = 0xeef1f4;
 const BRAND = 0xe87524;
 const DANGER = 0xe5484d;
+const SUN_DIR = new THREE.Vector3(-0.55, 0.8, 0.36).normalize();
 
 const HOTSPOT = new THREE.Vector3(0, 0, 0);
 
@@ -37,95 +38,140 @@ const KEYS: Array<{ p: [number, number, number]; l: [number, number, number] }> 
   { p: [66, 42, -52], l: [0, 0, 0] },
 ];
 
+/** A soft daylight sky (blue overhead, pale haze at the horizon, warm ground) for reflections and ambient light. */
+function skyEnvironment(renderer: THREE.WebGLRenderer) {
+  const scene = new THREE.Scene();
+  const geo = new THREE.SphereGeometry(10, 48, 24);
+  const pos = geo.attributes.position!;
+  const colors = new Float32Array(pos.count * 3);
+  const zenith = new THREE.Color(0xa7c8e8);
+  const horizon = new THREE.Color(BG);
+  const below = new THREE.Color(0xb9b1a4);
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const t = pos.getY(i) / 10;
+    if (t >= 0) c.copy(horizon).lerp(zenith, Math.pow(t, 0.6));
+    else c.copy(horizon).lerp(below, Math.min(1, -t * 3));
+    colors.set([c.r, c.g, c.b], i * 3);
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const sky = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.96, 0.9).multiplyScalar(14) }));
+  sun.position.copy(SUN_DIR).multiplyScalar(9);
+  scene.add(sky, sun);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const target = pmrem.fromScene(scene, 0.03);
+  pmrem.dispose();
+  scene.traverse((o) => {
+    if (o instanceof THREE.Mesh) {
+      o.geometry.dispose();
+      (o.material as THREE.Material).dispose();
+    }
+  });
+  return target;
+}
 
-function addPin(world: THREE.Group, [x, z]: Pt, color: number) {
-  // Pickup (dark) and destination (orange) markers.
+/** A map pin that turns to face the camera. */
+function addPin(world: THREE.Group, [x, z]: Pt, color: number, shadow: THREE.Texture) {
   const g = new THREE.Group();
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 7, 8), new THREE.MeshBasicMaterial({ color, toneMapped: false }));
-  stem.position.y = 3.5;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 12), new THREE.MeshBasicMaterial({ color, toneMapped: false }));
-  head.position.y = 7.4;
-  g.add(stem, head);
+  const shape = pinGeometry();
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.05 });
+  g.add(new THREE.Mesh(shape.head, mat), new THREE.Mesh(shape.point, mat));
+  g.add(new THREE.Mesh(shape.dot, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })));
+  const base = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 4).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0x000000, map: shadow, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  base.position.y = 0.4;
+  g.add(base);
   g.position.set(x, 0, z);
   world.add(g);
+  return g;
 }
 
 /** Builds the scene on the canvas and starts rendering; returns a cleanup function. */
 function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
+  const small = window.innerWidth < 700;
+  const deviceDpr = window.devicePixelRatio || 1;
   let renderer: THREE.WebGLRenderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    // Multisampling costs a lot at 2x and is barely visible there, so only use it at 1x.
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: deviceDpr < 1.5, powerPreference: "high-performance" });
   } catch {
     return; // No WebGL: the page still reads fine on its plain background.
   }
-  const small = window.innerWidth < 700;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.5 : 2));
+  const maxDpr = Math.min(deviceDpr, small ? 1.5 : 2);
+  let dpr = maxDpr;
+  renderer.setPixelRatio(dpr);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  // Nothing that casts a shadow moves, so the shadow map is drawn once, not every frame.
+  renderer.shadowMap.autoUpdate = false;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.0;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BG);
-  scene.fog = new THREE.FogExp2(BG, 0.0045);
+  scene.fog = new THREE.FogExp2(BG, 0.005);
+  const env = skyEnvironment(renderer);
+  scene.environment = env.texture;
+  // The same sky, softened, behind the city: blue overhead fading into the haze at the horizon.
+  scene.background = env.texture;
+  scene.backgroundBlurriness = 0.35;
+  scene.environmentIntensity = 0.6;
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 700);
-  // Soft bloom: only the brightest things (lamps, lit windows, the route, the arrow) glow.
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), small ? 0.45 : 0.6, 0.55, 0.8);
-  composer.addPass(bloom);
-  composer.addPass(new OutputPass());
   const world = new THREE.Group();
   scene.add(world);
 
-  // Night: cool moonlight from above, a little warm bounce from the street lights below.
-  scene.add(new THREE.HemisphereLight(0x7f95c8, 0x2a1e14, 0.38));
-  const sun = new THREE.DirectionalLight(0xaec2ff, 0.42);
-  sun.position.set(-50, 90, 30);
+  scene.add(new THREE.HemisphereLight(0xe6eefa, 0xd6cbb8, 0.45));
+  const sun = new THREE.DirectionalLight(0xfff3e4, 2.6);
+  sun.position.copy(SUN_DIR).multiplyScalar(200);
   sun.castShadow = true;
-  const shadowSize = small ? 1024 : 2048;
+  const shadowSize = small ? 2048 : 4096;
   sun.shadow.mapSize.set(shadowSize, shadowSize);
-  Object.assign(sun.shadow.camera, { left: -110, right: 110, top: 110, bottom: -110, near: 1, far: 300 });
-  sun.shadow.bias = -0.0004;
+  Object.assign(sun.shadow.camera, { left: -128, right: 128, top: 128, bottom: -128, near: 20, far: 420 });
+  sun.shadow.bias = -0.0003;
+  sun.shadow.normalBias = 0.03;
   scene.add(sun);
 
-  const city = buildCity(world, renderer.capabilities.getMaxAnisotropy());
+  const city = buildCity(world, {
+    anisotropy: Math.min(8, renderer.capabilities.getMaxAnisotropy()),
+    quality: small ? "low" : "high",
+    cameraPath: KEYS.map((k) => k.p),
+  });
 
   const glowTex = radialGlowTexture();
-  const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false } as const;
+  const soft = { transparent: true, depthWrite: false, toneMapped: false } as const;
 
   // Reported-crime area: a soft red glow that fades out at its edge, with a pulsing ring.
-  const hotspotMat = new THREE.MeshBasicMaterial({ ...additive, color: DANGER, map: glowTex, opacity: 0.7 });
-  const hotspot = new THREE.Mesh(new THREE.PlaneGeometry(34, 34).rotateX(-Math.PI / 2), hotspotMat);
-  hotspot.position.copy(HOTSPOT).setY(0.2);
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(14.6, 15, 96).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: DANGER, transparent: true, opacity: 0.55, depthWrite: false, toneMapped: false }),
-  );
-  ring.position.copy(HOTSPOT).setY(0.22);
+  const hotspotMat = new THREE.MeshBasicMaterial({ ...soft, color: DANGER, map: glowTex, opacity: 0.7 });
+  const hotspot = new THREE.Mesh(new THREE.PlaneGeometry(36, 36).rotateX(-Math.PI / 2), hotspotMat);
+  hotspot.position.copy(HOTSPOT).setY(0.24);
+  hotspot.renderOrder = 2;
+  const ringMat = new THREE.MeshBasicMaterial({ ...soft, color: DANGER, opacity: 0.7 });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(14.5, 15, 96).rotateX(-Math.PI / 2), ringMat);
+  ring.position.copy(HOTSPOT).setY(0.26);
+  ring.renderOrder = 2;
   world.add(hotspot, ring);
 
-  const fastest = addRouteRibbon(world, FASTEST, { color: 0x9a958c, core: 0.7, glow: 4, y: 0.3, glowOpacity: 0.22 });
-  const safest = addRouteRibbon(world, SAFEST, { color: 0xf07a2a, core: 1.1, glow: 7.5, y: 0.36, glowOpacity: 0.6, flow: true });
-  addPin(world, A, 0x242321);
-  addPin(world, B, BRAND);
+  const fastest = addRouteRibbon(world, FASTEST, { color: 0x8e8a84, core: 0.7, glow: 3.6, y: 0.3, glowOpacity: 0.3 });
+  const safest = addRouteRibbon(world, SAFEST, { color: 0xf07a2a, core: 1.15, glow: 6.5, y: 0.36, glowOpacity: 0.42, flow: true });
+  const pins = [addPin(world, A, 0x1d1d1f, glowTex), addPin(world, B, BRAND, glowTex)];
 
-  // A navigation arrow drives along the safest route, with a warm glow on the road under it.
-  const arrowMat = new THREE.MeshStandardMaterial({
-    color: 0xfffaf2,
-    emissive: 0xffd9b0,
-    emissiveIntensity: 0.55,
-    roughness: 0.35,
-    metalness: 0.1,
-    transparent: true,
-  });
+  // A navigation puck drives along the safest route: white arrow on an orange disc.
+  const puck = new THREE.Group();
+  const rim = new THREE.Mesh(new THREE.CircleGeometry(2.25, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true }));
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.85, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: BRAND, toneMapped: false, transparent: true }));
+  disc.position.y = 0.02;
+  const arrowMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, transparent: true });
   const arrow = new THREE.Mesh(arrowGeometry(), arrowMat);
-  arrow.castShadow = true;
-  arrow.scale.setScalar(1.8);
-  const arrowGlowMat = new THREE.MeshBasicMaterial({ ...additive, color: BRAND, map: glowTex, opacity: 0.9 });
-  const arrowGlow = new THREE.Mesh(new THREE.PlaneGeometry(16, 16).rotateX(-Math.PI / 2), arrowGlowMat);
-  arrowGlow.renderOrder = 5;
-  world.add(arrow, arrowGlow);
+  arrow.scale.setScalar(0.85);
+  arrow.position.y = 0.05;
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(9, 9).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ ...soft, color: BRAND, map: glowTex, opacity: 0.5 }));
+  halo.position.y = -0.04;
+  puck.add(halo, rim, disc, arrow);
+  puck.renderOrder = 5;
+  world.add(puck);
+  const puckMats = [rim.material, disc.material, arrowMat, halo.material as THREE.MeshBasicMaterial];
   const tangent = new THREE.Vector3();
 
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -139,15 +185,15 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   let last = performance.now();
   let raf = 0;
   let visible = true;
+  let started = false;
 
   const resize = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    composer.setPixelRatio(renderer.getPixelRatio());
-    composer.setSize(w, h);
   };
   resize();
   window.addEventListener("resize", resize);
@@ -167,34 +213,72 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   };
   document.addEventListener("visibilitychange", onVisibility);
 
-  /** Fractional key index from how far the viewport middle is through the scene sections. */
+  /**
+   * Fractional key index: key k is reached when section k's centre is at the middle of the
+   * viewport, so the camera rests on a view while its section is being read.
+   */
   const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scene]"));
   const keyIndex = () => {
     if (!sections.length) return 0;
     const mid = window.innerHeight * 0.5;
+    const centres = sections.map((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
     let f = sections.length - 1;
-    for (let k = 0; k < sections.length; k++) {
-      const r = sections[k]!.getBoundingClientRect();
-      if (r.top <= mid && r.bottom > mid) {
-        f = k + (mid - r.top) / Math.max(r.height, 1);
-        break;
-      }
-      if (r.top > mid) {
-        f = k;
-        break;
+    if (mid <= centres[0]!) f = 0;
+    else {
+      for (let k = 0; k < centres.length - 1; k++) {
+        if (mid < centres[k + 1]!) {
+          f = k + (mid - centres[k]!) / Math.max(1, centres[k + 1]! - centres[k]!);
+          break;
+        }
       }
     }
     return Math.max(0, Math.min(KEYS.length - 1, (f * (KEYS.length - 1)) / Math.max(sections.length - 1, 1)));
   };
 
+  // Adaptive resolution: average the frame time over each second and step the pixel ratio.
+  let sampleTime = 0;
+  let sampleFrames = 0;
+  let calmFor = 0;
+  let warmup = 2;
+  const adapt = (elapsed: number) => {
+    sampleTime += elapsed;
+    sampleFrames++;
+    if (sampleTime < 1) return;
+    const avg = sampleTime / sampleFrames;
+    sampleTime = 0;
+    sampleFrames = 0;
+    if (warmup > 0) {
+      warmup--;
+      return;
+    }
+    if (avg > 1 / 45 && dpr > 1) {
+      dpr = Math.max(1, dpr - 0.25);
+      calmFor = 0;
+      resize();
+    } else if (avg < 1 / 57 && dpr < maxDpr) {
+      calmFor++;
+      if (calmFor >= 5) {
+        dpr = Math.min(maxDpr, dpr + 0.25);
+        calmFor = 0;
+        resize();
+      }
+    } else {
+      calmFor = 0;
+    }
+  };
+
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
-    if (!visible) return;
+    if (!visible || !started) return;
     // RAF timestamps can trail performance.now(), so never let time run backwards.
     const elapsed = Math.max(0, (now - last) / 1000 || 0);
     last = now;
     const dt = Math.min(0.05, elapsed);
     time += reduce ? dt * 0.3 : dt;
+    adapt(elapsed);
 
     target = keyIndex();
     // Time-based easing so the camera arrives in about a second even when frames are slow.
@@ -220,31 +304,46 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     }
     camera.lookAt(look);
     // Thin the haze as the camera climbs so the top-down view stays crisp.
-    (scene.fog as THREE.FogExp2).density = 0.0045 - Math.min(1, Math.max(0, (camera.position.y - 30) / 120)) * 0.003;
+    (scene.fog as THREE.FogExp2).density = 0.005 - Math.min(1, Math.max(0, (camera.position.y - 45) / 110)) * 0.0034;
 
-    hotspotMat.opacity = 0.6 + Math.sin(time * 2.2) * 0.12;
-    ring.scale.setScalar(1 + ((time * 0.35) % 1) * 0.12);
-    (ring.material as THREE.MeshBasicMaterial).opacity = 0.55 * (1 - ((time * 0.35) % 1));
-    city.update(time);
+    hotspotMat.opacity = 0.62 + Math.sin(time * 2.2) * 0.1;
+    const wave = (time * 0.35) % 1;
+    ring.scale.setScalar(1 + wave * 0.12);
+    ringMat.opacity = 0.7 * (1 - wave);
+    city.update(time, reduce ? dt * 0.3 : dt);
     fastest.update(time);
     safest.update(time);
-    // Arrow: one trip every ~20 s, fading out at the destination and back in at the start.
+    for (const pin of pins) pin.rotation.y = Math.atan2(camera.position.x - pin.position.x, camera.position.z - pin.position.z);
+    // The puck makes one trip every ~20 s, fading out at the destination and back in at the start.
     const t = (time * 0.05) % 1;
     safest.path.getPointAt(t, pt);
     safest.path.getTangentAt(t, tangent);
-    arrow.position.set(pt.x, 0.55 + Math.sin(time * 3) * 0.08, pt.z);
+    puck.position.set(pt.x, 0.5, pt.z);
     arrow.rotation.y = headingYaw(tangent);
     const fade = Math.min(1, t * 14, (1 - t) * 14);
-    arrowMat.opacity = fade;
-    arrowGlow.position.set(pt.x, 0.42, pt.z);
-    arrowGlowMat.opacity = 0.9 * fade;
-    composer.render();
+    puckMats.forEach((m, k) => {
+      m.opacity = (k === 3 ? 0.5 : 1) * fade;
+    });
+    renderer.render(scene, camera);
     // Fade the city in once its first frame is ready.
     if (canvas.style.opacity !== "1") canvas.style.opacity = "1";
   };
+
+  // Compile the shaders off the main path first so the first frames don't stutter.
+  renderer.shadowMap.needsUpdate = true;
+  let disposed = false;
+  renderer
+    .compileAsync(scene, camera)
+    .catch(() => undefined)
+    .then(() => {
+      if (disposed) return;
+      started = true;
+      last = performance.now();
+    });
   raf = requestAnimationFrame(frame);
 
   return () => {
+    disposed = true;
     cancelAnimationFrame(raf);
     window.removeEventListener("resize", resize);
     window.removeEventListener("pointermove", onPointer);
@@ -260,12 +359,10 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     fastest.dispose();
     safest.dispose();
     glowTex.dispose();
-    bloom.dispose();
-    composer.dispose();
+    env.dispose();
     renderer.dispose();
   };
 }
-
 
 export default function CityScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -293,7 +390,7 @@ export default function CityScene() {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="fixed inset-0 z-0 h-full w-full opacity-0 transition-opacity duration-[1400ms] ease-out"
+      className="fixed inset-0 z-0 h-full w-full opacity-0 transition-opacity duration-[1200ms] ease-out"
     />
   );
 }

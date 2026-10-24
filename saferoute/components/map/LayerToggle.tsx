@@ -45,10 +45,10 @@ export function LayerToggle(p: LayerToggleProps) {
   );
 }
 
-export function Switch({ on, dark = false }: { on: boolean; dark?: boolean }) {
+export function Switch({ on }: { on: boolean }) {
   return (
     <span
-      className={`relative inline-block h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ${on ? (dark ? "bg-[#fbbf24]" : "bg-brand") : "bg-[rgb(120_120_128/0.16)]"}`}
+      className={`relative inline-block h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ${on ? "bg-brand" : "bg-[rgb(120_120_128/0.16)]"}`}
       aria-hidden="true"
     >
       <span

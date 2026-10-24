@@ -55,9 +55,12 @@ body {
   }
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-brand);
-  outline-offset: 2px;
+/* In the base layer so a component can replace the ring with its own focus style. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
 }
 
 .scrollbar-thin {
@@ -166,32 +169,11 @@ body {
   color: var(--color-ink-muted) !important;
 }
 
-/* ---- Night view ---------------------------------------------------------- */
-
-.saferoute-map .leaflet-tile-pane {
-  transition: filter 300ms ease-out;
-}
-
-.saferoute-map.is-night {
-  background: #0b0d14;
-}
+/* ---- Base map ------------------------------------------------------------ */
 
 .saferoute-map .leaflet-tile-pane {
   /* Calmer, warmer OpenStreetMap colours that sit well with the cream UI. */
   filter: saturate(0.55) sepia(0.12) brightness(1.03) contrast(0.94);
-}
-
-.saferoute-map.is-night .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(200deg) brightness(0.42) contrast(1.15) saturate(0.35);
-}
-
-.saferoute-map .leaflet-nightLights-pane {
-  mix-blend-mode: screen;
-}
-
-.sr-night-overlay {
-  image-rendering: auto;
-  filter: blur(1.5px);
 }
 
 /* ---- Map markers ---------------------------------------------------------- */
@@ -427,155 +409,70 @@ body {
   .sr-route-flow, .sr-route-alt { animation: none; }
 }
 
-/* ---- About page: scroll flow ------------------------------------------------ */
+/* ---- About page ------------------------------------------------------------- */
+
+html:has(.sr-about),
+html:has(.sr-about) body {
+  background: #eef1f4;
+}
+.sr-about ::selection {
+  background: var(--color-brand);
+  color: #fff;
+}
+.sr-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Variable", "Segoe UI", sans-serif;
+}
 
 /* Hero lines rise in on load, one after another (--d sets the delay). Opacity and
    transform only, so the compositor runs it even while the 3D city is being built. */
 @keyframes sr-rise {
-  from { opacity: 0; transform: translate3d(0, 28px, 0); }
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
   to { opacity: 1; transform: none; }
 }
 .sr-intro {
-  animation: sr-rise 950ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: sr-rise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   animation-delay: var(--d, 0ms);
-}
-
-/* Everything below the fold flows in as it scrolls into view. Only hidden once the
-   script is running (data-fx), so the page still reads without JavaScript. */
-:root[data-fx] [data-reveal] {
-  opacity: 0;
-  transform: translate3d(0, 36px, 0);
-  filter: blur(8px);
-  transition:
-    opacity 900ms cubic-bezier(0.2, 0.7, 0.2, 1),
-    transform 1000ms cubic-bezier(0.2, 0.7, 0.2, 1),
-    filter 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
-  transition-delay: var(--d, 0ms);
-}
-/* Glass cards slide in from their side without blur (blur would break their backdrop). */
-:root[data-fx] [data-reveal="left"] { transform: translate3d(-70px, 0, 0) scale(0.97); filter: none; }
-:root[data-fx] [data-reveal="right"] { transform: translate3d(70px, 0, 0) scale(0.97); filter: none; }
-:root[data-fx] [data-reveal].is-in { opacity: 1; transform: none; filter: none; }
-
-/* Route rows: the coloured bar draws itself once the row is in. */
-.sr-bar { transform: scaleX(0); transform-origin: left; transition: transform 1100ms cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: calc(var(--d, 0ms) + 250ms); }
-:root:not([data-fx]) .sr-bar, .is-in .sr-bar { transform: scaleX(var(--w, 1)); }
-
-/* Ticker along the bottom of the hero. */
-@keyframes sr-marquee { to { transform: translateX(-50%); } }
-.sr-marquee { animation: sr-marquee 40s linear infinite; }
-
-/* "Scroll" hint: a dot that runs down a short line. */
-@keyframes sr-scroll-dot {
-  0% { transform: translateY(0); opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { transform: translateY(22px); opacity: 0; }
-}
-.sr-scroll-dot { animation: sr-scroll-dot 1.8s ease-in-out infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .sr-intro, .sr-marquee, .sr-scroll-dot { animation: none; }
-  :root[data-fx] [data-reveal] { opacity: 1; transform: none; filter: none; transition: none; }
-  .sr-bar { transition: none; }
-}
-
-/* ---- About page: dark theme -------------------------------------------------- */
-
-html:has(.sr-about),
-html:has(.sr-about) body {
-  background: #0b0d12;
-  color-scheme: dark;
-}
-.sr-about ::selection {
-  background: #f07a2a;
-  color: #fff;
-}
-.sr-serif {
-  /* Accent words: same Apple display face, set apart by colour rather than an italic serif. */
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Variable", "Segoe UI", sans-serif;
-  font-style: normal;
-  font-weight: 600;
-}
-
-/* ---- About page: type and motion details -------------------------------------- */
-
-.sr-display {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Variable", "Segoe UI", sans-serif;
-  letter-spacing: -0.025em;
-}
-.sr-mono {
-  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* Headline lines slide up from behind a mask. */
 .sr-mask {
   display: block;
   overflow: hidden;
-  padding: 0 0.18em 0.1em 0;
-  margin-bottom: -0.1em;
+  padding: 0 0.12em 0.08em 0;
+  margin-bottom: -0.08em;
 }
 .sr-mask > span {
   display: block;
-  animation: sr-mask-up 1100ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: sr-mask-up 950ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--d, 0ms);
 }
 @keyframes sr-mask-up {
-  from { transform: translate3d(0, 108%, 0) rotate(2.5deg); }
+  from { transform: translate3d(0, 105%, 0); }
   to { transform: none; }
 }
 
-/* Slow drift of the orange gradient inside accent words. */
-.sr-shimmer {
-  background-size: 220% 100%;
-  animation: sr-shimmer 7s ease-in-out infinite;
-}
-@keyframes sr-shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-/* Cards: a soft light and a lit border follow the pointer (positions set by ScrollFx). */
-.sr-spot { position: relative; isolation: isolate; }
-.sr-spot::before,
-.sr-spot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
+/* Everything below the fold eases in as it scrolls into view. Only hidden once the
+   script is running (data-fx), so the page still reads without JavaScript. */
+:root[data-fx] [data-reveal] {
   opacity: 0;
-  transition: opacity 400ms ease;
+  transform: translate3d(0, 20px, 0);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
 }
-.sr-spot::before {
-  z-index: -1;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(240 122 42 / 0.13), transparent 60%);
-}
-.sr-spot::after {
-  padding: 1px;
-  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgb(255 178 120 / 0.65), transparent 65%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-.sr-spot:hover::before,
-.sr-spot:hover::after { opacity: 1; }
+:root[data-fx] [data-reveal="left"] { transform: translate3d(-32px, 0, 0); }
+:root[data-fx] [data-reveal="right"] { transform: translate3d(32px, 0, 0); }
+:root[data-fx] [data-reveal].is-in { opacity: 1; transform: none; }
 
-/* A light sweep across primary buttons on hover. */
-.sr-sheen { position: relative; overflow: hidden; }
-.sr-sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.38) 50%, transparent 70%);
-  transform: translateX(-130%);
-  transition: transform 850ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.sr-sheen:hover::after { transform: translateX(130%); }
+/* Route rows: the coloured bar draws itself once the row is in. */
+.sr-bar { transform: scaleX(0); transform-origin: left; transition: transform 1000ms cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: calc(var(--d, 0ms) + 200ms); }
+:root:not([data-fx]) .sr-bar, .is-in .sr-bar { transform: scaleX(var(--w, 1)); }
 
 @media (prefers-reduced-motion: reduce) {
-  .sr-mask > span, .sr-shimmer { animation: none; }
-  .sr-sheen::after { display: none; }
+  .sr-intro, .sr-mask > span { animation: none; }
+  :root[data-fx] [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .sr-bar { transition: none; }
 }
 
 /* ---- Map app: motion ------------------------------------------------------------ */

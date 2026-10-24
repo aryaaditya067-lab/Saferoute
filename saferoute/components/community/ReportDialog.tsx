@@ -60,11 +60,11 @@ export function ReportDialog({ point, placeLabel, confirmThreshold, onClose, onS
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-title"
-        className="relative max-h-[90dvh] w-full animate-slide-down overflow-y-auto rounded-t-3xl border border-line bg-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-float scrollbar-thin md:w-[440px] md:rounded-3xl md:p-5"
+        className="relative max-h-[90dvh] w-full animate-slide-down overflow-y-auto rounded-t-[28px] border border-line bg-paper p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-float scrollbar-thin md:w-[460px] md:rounded-[28px] md:p-6"
       >
-        <div className="mb-3 flex items-start gap-2">
+        <div className="mb-4 flex items-start gap-2">
           <div className="flex-1">
-            <h2 id="report-title" className="text-base font-semibold text-ink">Report a safety issue</h2>
+            <h2 id="report-title" className="text-[18px] font-semibold tracking-[-0.01em] text-ink">Report a safety issue</h2>
             <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-muted">
               <MapPin className="size-3.5" aria-hidden="true" />
               {placeLabel ?? formatCoordinates(point)}
@@ -131,7 +131,7 @@ export function ReportDialog({ point, placeLabel, confirmThreshold, onClose, onS
           type="button"
           onClick={submit}
           disabled={sending}
-          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand text-[15px] font-semibold text-paper hover:bg-brand-strong disabled:opacity-80"
+          className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-brand text-[16px] font-semibold text-paper transition-colors hover:bg-brand-strong disabled:opacity-80"
         >
           {sending && <Spinner className="size-4" />}
           {sending ? "Sending…" : "Submit report"}

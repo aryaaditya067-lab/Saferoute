@@ -163,7 +163,7 @@ export function LocationField({
             }}
             onBlur={stopEditing}
             onKeyDown={handleKeyDown}
-            className="h-7 w-full truncate bg-transparent text-[15px] font-medium text-ink outline-none placeholder:font-normal placeholder:text-ink-muted"
+            className="h-7 w-full truncate bg-transparent text-[15px] font-medium text-ink outline-none placeholder:font-normal placeholder:text-ink-muted focus-visible:outline-none"
           />
           {caption && (
             <p className="truncate text-xs text-ink-muted" title={caption}>

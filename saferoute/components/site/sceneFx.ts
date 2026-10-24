@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 /**
  * Shared look-refining pieces for the about-page city: soft glow textures, smooth
- * route ribbons with rounded corners, and the arrow that travels along the route.
+ * route ribbons with rounded corners, map pins and the arrow that travels along the route.
  */
 
 function canvasTexture(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
@@ -108,7 +108,7 @@ function ribbonGeometry(path: THREE.CurvePath<THREE.Vector3>, width: number, y: 
 }
 
 /**
- * A glowing route: a soft wide glow, a solid core line and, optionally, light dashes
+ * A route line: a soft wide halo, a solid core line and, optionally, light dashes
  * that flow towards the destination. Returns the path and a per-frame update.
  */
 export function addRouteRibbon(
@@ -118,11 +118,11 @@ export function addRouteRibbon(
 ) {
   const path = roundedPath(points, 4);
   const band = bandTexture();
-  const additive = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide } as const;
+  const soft = { transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide } as const;
 
   const glow = new THREE.Mesh(
     ribbonGeometry(path, opts.glow, opts.y),
-    new THREE.MeshBasicMaterial({ ...additive, color: opts.color, map: band, opacity: opts.glowOpacity }),
+    new THREE.MeshBasicMaterial({ ...soft, color: opts.color, map: band, opacity: opts.glowOpacity }),
   );
   const core = new THREE.Mesh(
     ribbonGeometry(path, opts.core, opts.y + 0.02),
@@ -138,7 +138,7 @@ export function addRouteRibbon(
     dashes.repeat.set(1 / 5, 1); // one dash every 5 units
     const flow = new THREE.Mesh(
       ribbonGeometry(path, opts.core * 0.55, opts.y + 0.04),
-      new THREE.MeshBasicMaterial({ ...additive, color: 0xfff1dc, map: dashes, opacity: 0.95 }),
+      new THREE.MeshBasicMaterial({ ...soft, color: 0xffffff, map: dashes, opacity: 0.95 }),
     );
     flow.renderOrder = 4;
     world.add(flow);
@@ -172,4 +172,14 @@ export function arrowGeometry() {
 /** Yaw that turns an object's -z axis to face along a ground-plane direction. */
 export function headingYaw(dir: THREE.Vector3) {
   return Math.atan2(-dir.x, -dir.z);
+}
+
+/**
+ * A map pin standing on the ground: a round head on a tapering point, about 4.4 tall.
+ * The white dot faces +z, so turn the pin towards the camera each frame.
+ */
+export function pinGeometry() {
+  const head = new THREE.SphereGeometry(1.15, 28, 18).translate(0, 3.25, 0);
+  const point = new THREE.ConeGeometry(0.98, 2.55, 28, 1, true).rotateX(Math.PI).translate(0, 1.375, 0);
+  return { head, point, dot: new THREE.CircleGeometry(0.46, 24).translate(0, 3.25, 1.16) };
 }

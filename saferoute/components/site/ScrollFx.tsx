@@ -59,21 +59,10 @@ export function ScrollFx({ sections }: { sections: ScrollSection[] }) {
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
 
-    // Cards marked [data-spot] get a light that follows the pointer (see .sr-spot).
-    const onPointer = (e: PointerEvent) => {
-      const el = (e.target as Element | null)?.closest?.("[data-spot]");
-      if (!(el instanceof HTMLElement)) return;
-      const r = el.getBoundingClientRect();
-      el.style.setProperty("--mx", `${e.clientX - r.left}px`);
-      el.style.setProperty("--my", `${e.clientY - r.top}px`);
-    };
-    window.addEventListener("pointermove", onPointer, { passive: true });
-
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
-      window.removeEventListener("pointermove", onPointer);
       observer?.disconnect();
       delete root.dataset.fx;
     };
@@ -81,13 +70,13 @@ export function ScrollFx({ sections }: { sections: ScrollSection[] }) {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 top-14 z-40 h-0.5" aria-hidden="true">
-        <div ref={barRef} className="h-full origin-left scale-x-0 bg-linear-to-r from-[#ffb36b] to-[#f07a2a]" />
+      <div className="pointer-events-none fixed inset-x-0 top-16 z-40 h-0.5" aria-hidden="true">
+        <div ref={barRef} className="h-full origin-left scale-x-0 bg-brand" />
       </div>
 
       <nav
         aria-label="Sections"
-        className="fixed top-1/2 right-4 z-30 hidden -translate-y-1/2 flex-col items-end gap-3.5 lg:flex xl:right-6"
+        className="fixed top-1/2 right-5 z-30 hidden -translate-y-1/2 flex-col items-end gap-1 rounded-2xl border border-black/[0.05] bg-white/70 p-2 shadow-[0_8px_24px_-12px_rgb(0_0_0/0.25)] backdrop-blur-xl lg:flex"
       >
         {sections.map((s, i) => {
           const on = i === active;
@@ -96,18 +85,14 @@ export function ScrollFx({ sections }: { sections: ScrollSection[] }) {
               key={s.id}
               href={`#${s.id}`}
               aria-current={on ? "true" : undefined}
-              className="group flex items-center gap-2.5 py-0.5 text-xs font-medium text-white/45 hover:text-white"
+              className="group relative flex h-6 w-9 items-center justify-end pr-1"
             >
-              <span
-                className={`whitespace-nowrap transition-opacity duration-300 ${
-                  on ? "text-white opacity-100" : "opacity-0 group-hover:opacity-100"
-                }`}
-              >
+              <span className="pointer-events-none absolute right-full mr-3 rounded-lg bg-white/95 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-ink opacity-0 shadow-[0_4px_14px_-6px_rgb(0_0_0/0.3)] transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
                 {s.label}
               </span>
               <i
-                className={`block h-0.5 rounded-full transition-all duration-300 ${
-                  on ? "w-8 bg-[#f07a2a]" : "w-4 bg-white/30 group-hover:w-6"
+                className={`block h-1 rounded-full transition-all duration-300 ${
+                  on ? "w-7 bg-brand" : "w-3.5 bg-black/20 group-hover:w-5 group-hover:bg-black/35"
                 }`}
               />
             </a>

@@ -142,8 +142,8 @@ export function NavigationPanel(props: NavigationPanelProps) {
         }`}
       >
         <div>
-          <h1 className="sr-display text-[24px] leading-[1.1] font-semibold text-ink md:text-[28px]">Where do you want to go?</h1>
-          <p className="mt-1.5 text-[15px] text-ink-muted">Compare the fastest and the safest way there.</p>
+          <h1 className="sr-display text-[22px] leading-[1.15] font-semibold tracking-[-0.02em] text-ink md:text-[24px]">Where do you want to go?</h1>
+          <p className="mt-1 text-[14px] text-ink-muted">Compare the fastest and the safest way there.</p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -219,7 +219,7 @@ export function NavigationPanel(props: NavigationPanelProps) {
             }
           />
           </div>
-          <p className="px-1 text-[13px] text-ink-muted">
+          <p className="px-1 text-[12px] text-ink-muted">
             Tip: <span className="hidden md:inline">right-click</span>
             <span className="md:hidden">long-press</span> the map to drop a pin.
           </p>
@@ -258,10 +258,10 @@ export function NavigationPanel(props: NavigationPanelProps) {
           type="button"
           onClick={props.onFindRoutes}
           disabled={loading}
-          className="inline-flex h-[50px] w-full shrink-0 items-center justify-center gap-2 rounded-[14px] bg-brand text-[17px] font-semibold text-white transition-[transform,filter] duration-150 hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:opacity-80"
+          className="inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-[14px] bg-brand text-[16px] font-semibold text-white shadow-[0_1px_2px_rgb(0_0_0/0.08),0_8px_20px_-8px_rgb(232_117_36/0.6)] transition-[transform,background-color] duration-150 hover:bg-brand-strong active:scale-[0.98] disabled:cursor-wait disabled:opacity-80"
         >
           {loading ? <Spinner className="size-[18px]" /> : <RouteIcon className="size-[18px]" aria-hidden="true" />}
-          {loading ? "Finding routes…" : "Find Safer Routes"}
+          {loading ? "Finding routes…" : "Find safer routes"}
         </button>
 
         <RoutePanel

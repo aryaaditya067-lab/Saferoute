@@ -21,9 +21,6 @@ export const config = {
   tileUrl:
     process.env.NEXT_PUBLIC_TILE_URL?.trim() || "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
 
-  /** Optional separate base map for Night view. Empty = the same tiles, darkened with CSS. */
-  tileUrlNight: process.env.NEXT_PUBLIC_TILE_URL_NIGHT?.trim() || "",
-
   tileAttribution:
     '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
 } as const;

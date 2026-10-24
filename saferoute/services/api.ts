@@ -22,8 +22,6 @@
  *        -> CommunitySpotsResponse
  *   POST /api/v1/community-reports
  *        body: { category, lat, lng, note?, deviceId } -> CommunitySpot
- *   GET  /api/v1/night-lights
- *        -> NightLightsResponse (NASA Black Marble night-time brightness)
  *
  * The backend lives in ../saferoute-backend (Java Spring Boot).
  */
@@ -38,7 +36,6 @@ export const API_ENDPOINTS = {
   routes: "/api/v1/routes",
   incidents: "/api/v1/incidents",
   communityReports: "/api/v1/community-reports",
-  nightLights: "/api/v1/night-lights",
 } as const;
 
 export function isBackendConfigured(): boolean {

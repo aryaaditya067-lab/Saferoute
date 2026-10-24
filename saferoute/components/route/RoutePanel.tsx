@@ -1,13 +1,13 @@
 "use client";
 
-import { CircleAlert, RotateCw, X } from "lucide-react";
+import { ChevronDown, CircleAlert, RotateCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatArrival, formatDistance, formatDuration } from "@/lib/format";
 import { RouteBadges } from "./RouteBadges";
 import { MetroCard } from "./MetroCard";
 import { RouteSafetyFacts } from "./RouteSafetyFacts";
-import type { RouteResponse, SafetyFactor } from "@/types";
+import type { RouteResponse, RouteSafety, SafetyFactor } from "@/types";
 
 export type RouteState =
   | { status: "idle" }
@@ -76,8 +76,8 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
 
   return (
     <section aria-labelledby="routes-heading" className="animate-fade-in">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 id="routes-heading" className="text-xs font-semibold tracking-wide text-ink-muted uppercase">
+      <div className="mb-2.5 flex items-center justify-between">
+        <h2 id="routes-heading" className="text-[13px] font-semibold text-ink-muted">
           {routes.length === 1 ? "Route" : `${routes.length} routes`}
         </h2>
         <button
@@ -91,7 +91,7 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
 
       {state.response.transit && <MetroCard transit={state.response.transit} />}
 
-      <ul className="sr-stagger flex flex-col gap-2" role="radiogroup" aria-label="Available routes">
+      <ul className="sr-stagger flex flex-col gap-2.5" role="radiogroup" aria-label="Available routes">
         {shown.map((route) => {
           const note = noteFor(route);
           const selected = route.id === selectedId;
@@ -104,10 +104,10 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
           return (
             <li key={route.id}>
               <div
-                className={`rounded-[16px] border transition-all duration-200 ${
+                className={`rounded-[18px] bg-paper transition-[box-shadow,transform] duration-200 ${
                   selected
-                    ? "border-transparent bg-paper shadow-[0_0_0_2px_var(--color-brand),0_8px_24px_rgb(0_0_0/0.08)]"
-                    : "border-line bg-paper hover:-translate-y-px hover:shadow-[0_8px_24px_rgb(0_0_0/0.08)]"
+                    ? "shadow-[0_0_0_2px_var(--color-brand),0_10px_28px_-10px_rgb(0_0_0/0.18)]"
+                    : "shadow-[0_0_0_1px_rgb(0_0_0/0.07)] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgb(0_0_0/0.1),0_10px_24px_-12px_rgb(0_0_0/0.2)]"
                 }`}
               >
                 <button
@@ -115,43 +115,42 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
                   role="radio"
                   aria-checked={selected}
                   onClick={() => onSelect(route.id)}
-                  className="flex w-full items-start gap-3 px-3.5 pt-3 pb-3 text-left"
+                  className="flex w-full flex-col px-4 py-3.5 text-left"
                 >
-                  <span
-                    className={`mt-1 h-9 w-1 shrink-0 rounded-full ${selected ? "bg-brand" : "bg-line-strong"}`}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 flex-1">
-                    {route.labels && route.labels.length > 0 ? (
-                      <span className="mb-1 block">
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      {route.labels && route.labels.length > 0 ? (
                         <RouteBadges labels={route.labels} />
-                      </span>
-                    ) : (
-                      ranked && (
-                        <span className="mb-1 block text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
-                          Other option
+                      ) : (
+                        ranked && <span className="text-[12px] font-semibold text-ink-muted">Other option</span>
+                      )}
+                      <span className="mt-1.5 flex items-baseline gap-2">
+                        <span className="text-[22px] leading-none font-semibold tracking-tight text-ink tabular-nums">
+                          {formatDuration(route.durationSeconds)}
                         </span>
-                      )
-                    )}
-                    <span className="flex items-baseline gap-2">
-                      <span className="text-[17px] font-semibold text-ink tabular-nums">
-                        {formatDuration(route.durationSeconds)}
+                        <span className="text-[14px] text-ink-muted tabular-nums">{formatDistance(route.distanceMeters)}</span>
                       </span>
-                      <span className="text-sm text-ink-soft tabular-nums">{formatDistance(route.distanceMeters)}</span>
                     </span>
-                    <span className="block truncate text-xs text-ink-muted">
-                      {route.summary ? `via ${route.summary}` : `Arrive around ${formatArrival(route.durationSeconds, computedDate)}`}
+                    <span className="flex shrink-0 items-center gap-2">
+                      {tags.length > 0 && (
+                        <span className="rounded-full bg-brand-soft px-2 py-[3px] text-[12px] font-semibold text-brand-strong">{tags.join(" · ")}</span>
+                      )}
+                      <span
+                        className={`flex size-5 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-brand" : "border-black/15"}`}
+                        aria-hidden="true"
+                      >
+                        {selected && <span className="size-2.5 rounded-full bg-brand" />}
+                      </span>
                     </span>
-                    {selected && route.safety && method && (
-                      <RouteSafetyFacts safety={route.safety} serviceRadiusMeters={method.serviceRadiusMeters} />
-                    )}
-                    {selected && note && <span className="mt-1.5 block text-xs font-medium text-ink-soft">ℹ️ {note}</span>}
                   </span>
-                  {tags.length > 0 && (
-                    <span className="shrink-0 rounded-full bg-paper px-2 py-0.5 text-[11px] font-semibold text-brand-strong ring-1 ring-brand/30">
-                      {tags.join(" · ")}
-                    </span>
+                  <span className="mt-1.5 block truncate text-[13px] text-ink-muted">
+                    {route.summary ? `via ${route.summary}` : `Arrive around ${formatArrival(route.durationSeconds, computedDate)}`}
+                  </span>
+                  {route.safety && <QuickFacts safety={route.safety} />}
+                  {selected && route.safety && method && (
+                    <RouteSafetyFacts safety={route.safety} serviceRadiusMeters={method.serviceRadiusMeters} />
                   )}
+                  {selected && note && <span className="mt-2.5 block rounded-lg bg-[#fdf3e1] px-2.5 py-2 text-[12px] font-medium text-[#7a4a06]">{note}</span>}
                 </button>
               </div>
             </li>
@@ -160,10 +159,10 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
       </ul>
 
       {method && (
-        <details className="group mt-2.5 rounded-xl bg-cream/70 px-3 py-2 text-[11px] leading-relaxed text-ink-soft">
-          <summary className="flex cursor-pointer list-none items-center justify-between font-medium text-ink-soft [&::-webkit-details-marker]:hidden">
+        <details className="group mt-3 rounded-xl px-3.5 py-2.5 text-[12px] leading-relaxed text-ink-soft shadow-[0_0_0_1px_rgb(0_0_0/0.07)]">
+          <summary className="flex cursor-pointer list-none items-center justify-between text-[13px] font-medium text-ink [&::-webkit-details-marker]:hidden">
             How is “Safest” chosen?
-            <span className="text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+            <ChevronDown className="size-4 text-ink-muted transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
           </summary>
           <p className="mt-1.5">
             {method.factorsUsed.length > 0
@@ -200,7 +199,7 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
         </details>
       )}
 
-      <p className="mt-2.5 px-0.5 text-[11px] leading-relaxed text-ink-muted">
+      <p className="mt-3 px-0.5 text-[12px] leading-relaxed text-ink-muted">
         Estimated times without live traffic · {provider}
       </p>
     </section>
@@ -223,7 +222,7 @@ function totalWeight(weights: Partial<Record<SafetyFactor, number>>): number {
   return sum > 0 ? sum : 1;
 }
 
-/** Loading state; after a few seconds it explains why long trips take a while. */
+/** Loading state: placeholder cards; after a few seconds it explains why long trips take a while. */
 function LoadingRoutes() {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
@@ -231,15 +230,48 @@ function LoadingRoutes() {
     return () => window.clearTimeout(timer);
   }, []);
   return (
-    <div className="rounded-xl border border-line bg-cream/60 px-3.5 py-3 text-sm text-ink-soft" role="status">
-      <span className="flex items-center gap-2.5">
-        <Spinner /> Finding routes and checking safety along them…
-      </span>
+    <div role="status" className="animate-fade-in">
+      <p className="mb-2.5 flex items-center gap-2 text-[13px] font-medium text-ink-soft">
+        <Spinner className="size-3.5" /> Finding routes and checking safety along them…
+      </p>
+      <div className="flex flex-col gap-2.5" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-[18px] px-4 py-3.5 shadow-[0_0_0_1px_rgb(0_0_0/0.06)]">
+            <div className="h-5 w-16 animate-pulse rounded-full bg-black/[0.06]" style={{ animationDelay: `${i * 120}ms` }} />
+            <div className="mt-2.5 h-6 w-28 animate-pulse rounded-md bg-black/[0.07]" style={{ animationDelay: `${i * 120}ms` }} />
+            <div className="mt-2 h-3.5 w-40 animate-pulse rounded bg-black/[0.05]" style={{ animationDelay: `${i * 120}ms` }} />
+          </div>
+        ))}
+      </div>
       {slow && (
-        <span className="mt-1.5 block text-xs text-ink-muted">
+        <p className="mt-2.5 text-[12px] leading-relaxed text-ink-muted">
           Long trips take longer: every route is checked against crime reports and street data. This can take up to 40 seconds.
-        </span>
+        </p>
       )}
     </div>
+  );
+}
+
+/** Two or three headline facts, so routes can be compared without opening each one. */
+function QuickFacts({ safety }: { safety: RouteSafety }) {
+  const chips: Array<{ text: string; tone: "good" | "warn" | "neutral" }> = [];
+  if (safety.crime.available) {
+    const n = safety.crime.incidentCount;
+    chips.push(n === 0 ? { text: "No reported crime", tone: "good" } : { text: `${n} reported area${n === 1 ? "" : "s"}`, tone: "warn" });
+  }
+  if (safety.lighting.available && safety.lighting.unknownFraction < 0.8) {
+    chips.push({ text: `${Math.round(safety.lighting.litFraction * 100)}% lit`, tone: safety.lighting.unlitFraction > 0.3 ? "warn" : "neutral" });
+  }
+  if (safety.police.available) chips.push({ text: `Police near ${Math.round(safety.police.coverageFraction * 100)}%`, tone: "neutral" });
+  if (!chips.length) return null;
+  const tone = { good: "bg-safe-soft text-safe", warn: "bg-danger-soft text-danger", neutral: "bg-[#f2f2f4] text-ink-soft" };
+  return (
+    <span className="mt-2.5 flex flex-wrap gap-1.5">
+      {chips.map((c) => (
+        <span key={c.text} className={`rounded-full px-2 py-[3px] text-[12px] font-medium tabular-nums ${tone[c.tone]}`}>
+          {c.text}
+        </span>
+      ))}
+    </span>
   );
 }
