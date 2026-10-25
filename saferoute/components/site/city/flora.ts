@@ -27,13 +27,13 @@ export function trunkGeo() {
 /** A soft, wide canopy of overlapping puffs, sitting on top of a 1.4-tall trunk. */
 export function canopyGeo() {
   return model((b) => {
+    // Three puffs at low segment counts: there are over a thousand trees, so this keeps the city light.
     const puffs: Array<[number, number, number, number]> = [
-      [0, 1.95, 0, 0.95],
-      [0.6, 1.78, 0.32, 0.7],
-      [-0.6, 1.8, -0.2, 0.72],
-      [-0.05, 1.76, -0.62, 0.64],
+      [0, 1.95, 0, 1.0],
+      [0.62, 1.78, 0.25, 0.74],
+      [-0.5, 1.78, -0.42, 0.76],
     ];
-    for (const [x, y, z, r] of puffs) b.geo(new THREE.SphereGeometry(r, 8, 5).scale(1, 0.72, 1), 0xffffff, x, y, z);
+    for (const [x, y, z, r] of puffs) b.geo(new THREE.SphereGeometry(r, 7, 4).scale(1, 0.72, 1), 0xffffff, x, y, z);
   });
 }
 

@@ -100,11 +100,13 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   } catch {
     return; // No WebGL: the page still reads fine on its plain background.
   }
-  const maxDpr = Math.min(deviceDpr, small ? 1.5 : 2);
+  // Above 1.5x the city costs far more to draw and looks no sharper behind the page text.
+  const maxDpr = Math.min(deviceDpr, 1.5);
   let dpr = maxDpr;
   renderer.setPixelRatio(dpr);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Plain PCF: much cheaper per pixel than PCFSoft, and the static map is filtered well enough.
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   // Nothing that casts a shadow moves, so the shadow map is drawn once, not every frame.
   renderer.shadowMap.autoUpdate = false;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -117,16 +119,17 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   // The same sky, softened, behind the city: blue overhead fading into the haze at the horizon.
   scene.background = env.texture;
   scene.backgroundBlurriness = 0.35;
-  scene.environmentIntensity = 0.6;
+  scene.environmentIntensity = 0.35;
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 700);
   const world = new THREE.Group();
   scene.add(world);
 
-  scene.add(new THREE.HemisphereLight(0xe6eefa, 0xd6cbb8, 0.45));
+  // Lambert surfaces get no light from the sky map, so the hemisphere light carries that soft fill.
+  scene.add(new THREE.HemisphereLight(0xe6eefa, 0xd6cbb8, 1.05));
   const sun = new THREE.DirectionalLight(0xfff3e4, 2.6);
   sun.position.copy(SUN_DIR).multiplyScalar(200);
   sun.castShadow = true;
-  const shadowSize = small ? 2048 : 4096;
+  const shadowSize = small ? 1024 : 2048;
   sun.shadow.mapSize.set(shadowSize, shadowSize);
   Object.assign(sun.shadow.camera, { left: -128, right: 128, top: 128, bottom: -128, near: 20, far: 420 });
   sun.shadow.bias = -0.0003;
@@ -204,6 +207,7 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     if (e.pointerType !== "mouse") return;
     pointer.x = (e.clientX / window.innerWidth - 0.5) * 2;
     pointer.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    lastInput = performance.now();
   };
   window.addEventListener("pointermove", onPointer, { passive: true });
 
@@ -218,6 +222,13 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
    * viewport, so the camera rests on a view while its section is being read.
    */
   const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scene]"));
+  // Measured on scroll/resize only, not every frame (reading layout each frame forces reflows).
+  let keyTarget = 0;
+  let lastInput = performance.now();
+  const onScroll = () => {
+    keyTarget = keyIndex();
+    lastInput = performance.now();
+  };
   const keyIndex = () => {
     if (!sections.length) return 0;
     const mid = window.innerHeight * 0.5;
@@ -241,7 +252,8 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   // Adaptive resolution: average the frame time over each second and step the pixel ratio.
   let sampleTime = 0;
   let sampleFrames = 0;
-  let calmFor = 0;
+  let slowFor = 0;
+  let lite = false;
   let warmup = 2;
   const adapt = (elapsed: number) => {
     sampleTime += elapsed;
@@ -254,33 +266,50 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
       warmup--;
       return;
     }
+    // Only ever steps down: stepping back up re-sizes the canvas again, and the back-and-forth
+    // showed up as a hitch every few seconds.
     if (avg > 1 / 45 && dpr > 1) {
       dpr = Math.max(1, dpr - 0.25);
-      calmFor = 0;
+      slowFor = 0;
       resize();
-    } else if (avg < 1 / 57 && dpr < maxDpr) {
-      calmFor++;
-      if (calmFor >= 5) {
-        dpr = Math.min(maxDpr, dpr + 0.25);
-        calmFor = 0;
-        resize();
+    } else if (avg > 1 / 40 && !lite) {
+      // Already at 1x and still slow: drop the shadows and the page's glass blur (lite mode).
+      if (++slowFor >= 2) {
+        lite = true;
+        renderer.shadowMap.enabled = false;
+        scene.traverse((o) => {
+          if (o instanceof THREE.Mesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.needsUpdate = true));
+        });
+        document.documentElement.classList.add("sr-lite");
       }
     } else {
-      calmFor = 0;
+      slowFor = 0;
     }
   };
 
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+  onScroll();
+
+  // When the camera has settled and nobody is scrolling or moving the mouse, draw every other
+  // display frame: half the GPU work, and still evenly paced on 60, 120 or 144 Hz screens
+  // (a fixed ms threshold skips frames unevenly on fast screens, which shows up as jitter).
+  let skipNext = false;
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
     if (!visible || !started) return;
+    const idle = now - lastInput > 600 && Math.abs(keyTarget - cur) < 0.002;
+    skipNext = idle ? !skipNext : false;
+    if (skipNext) return;
     // RAF timestamps can trail performance.now(), so never let time run backwards.
     const elapsed = Math.max(0, (now - last) / 1000 || 0);
     last = now;
     const dt = Math.min(0.05, elapsed);
     time += reduce ? dt * 0.3 : dt;
-    adapt(elapsed);
+    // Frame times are only meaningful while drawing every frame.
+    if (!idle) adapt(elapsed);
 
-    target = keyIndex();
+    target = keyTarget;
     // Time-based easing so the camera arrives in about a second even when frames are slow.
     cur += (target - cur) * (reduce ? 1 : 1 - Math.exp(-Math.min(0.5, elapsed) * 3.5));
     cur = Math.max(0, Math.min(KEYS.length - 1, cur));
@@ -347,6 +376,9 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     cancelAnimationFrame(raf);
     window.removeEventListener("resize", resize);
     window.removeEventListener("pointermove", onPointer);
+    window.removeEventListener("scroll", onScroll);
+    document.documentElement.classList.remove("sr-lite");
+    window.removeEventListener("resize", onScroll);
     document.removeEventListener("visibilitychange", onVisibility);
     scene.traverse((obj) => {
       if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {

@@ -784,20 +784,23 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
   ao.channel = 1;
   textures.push(facades.glass, facades.office, facades.res, facades.shop, asphalt, pavers, grass, ao);
   const std = (o: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial({ vertexColors: true, ...o });
+  // Matte surfaces (most of the screen) use Lambert, which is far cheaper to shade than PBR and
+  // looks the same on plaster, asphalt and grass. Only glass and water keep PBR for reflections.
+  const lam = (o: THREE.MeshLambertMaterialParameters) => new THREE.MeshLambertMaterial({ vertexColors: true, ...o });
   const materials: Record<Kind, THREE.Material> = {
     glass: std({ map: facades.glass, roughness: 0.2, metalness: 0.5, envMapIntensity: 1.3 }),
-    office: std({ map: facades.office, roughness: 0.6, metalness: 0.05 }),
-    res: std({ map: facades.res, roughness: 0.88 }),
-    shop: std({ map: facades.shop, roughness: 0.7 }),
-    plain: std({ roughness: 0.82 }),
-    pavers: std({ map: pavers, aoMap: ao, roughness: 0.95 }),
-    asphalt: std({ map: asphalt, aoMap: ao, roughness: 0.92 }),
-    grass: std({ map: grass, aoMap: ao, roughness: 1 }),
+    office: lam({ map: facades.office }),
+    res: lam({ map: facades.res }),
+    shop: lam({ map: facades.shop }),
+    plain: lam({}),
+    pavers: lam({ map: pavers, aoMap: ao }),
+    asphalt: lam({ map: asphalt, aoMap: ao }),
+    grass: lam({ map: grass, aoMap: ao }),
     water: std({ color: 0x86b2c6, roughness: 0.06, metalness: 0.1, envMapIntensity: 1.6 }),
   };
   const ground = new Set<Kind>(["pavers", "asphalt", "grass", "water"]);
   for (const mesh of batches.meshes(materials, (k) => ({ cast: !ground.has(k), receive: true }))) world.add(mesh);
-  const groundMesh = new THREE.Mesh(groundB.build(), std({ aoMap: ao, roughness: 1 }));
+  const groundMesh = new THREE.Mesh(groundB.build(), lam({ aoMap: ao }));
   groundMesh.receiveShadow = true;
   groundMesh.matrixAutoUpdate = false;
   world.add(groundMesh);
@@ -835,7 +838,7 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
     }
     for (const g of groups.values()) instanced(geo, mat, g, place);
   };
-  const vertexMat = std({ roughness: 0.6, metalness: 0.1 });
+  const vertexMat = lam({});
 
   // Lane markings, stop lines and zebra crossings: one stretched quad per stripe.
   const marks: Array<{ x: number; z: number; sx: number; sz: number; yellow?: boolean }> = [];
@@ -864,7 +867,7 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
       }
     }
   }
-  const markMesh = instanced(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }), marks, (m, d) => {
+  const markMesh = instanced(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xffffff }), marks, (m, d) => {
     d.position.set(m.x, 0.03, m.z);
     d.scale.set(m.sx, 1, m.sz);
     return m.yellow ? 0xe8b23a : 0xf4f1ea;
@@ -918,11 +921,11 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
 
   // Trees: one shared trunk mesh, then a canopy mesh per kind.
   const trunked = trees.filter((t) => t.kind !== "palm");
-  instancedByArea(trunkGeo(), new THREE.MeshStandardMaterial({ color: 0x6b5340, roughness: 0.9 }), trunked, (t, d) => {
+  instancedByArea(trunkGeo(), new THREE.MeshLambertMaterial({ color: 0x6b5340 }), trunked, (t, d) => {
     d.position.set(t.x, t.y, t.z);
     d.scale.set(t.s, t.s * (t.kind === "column" ? 0.8 : 1), t.s);
   });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+  const leafMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
   const canopy = canopyGeo();
   instancedByArea(canopy, leafMat, trees.filter((t) => t.kind === "rain"), (t, d) => {
     d.position.set(t.x, t.y, t.z);
@@ -1015,7 +1018,7 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
     std({ roughness: 0.9 }),
     peds.length,
   );
-  const pedHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 8, 6).translate(0, 0.82, 0), new THREE.MeshStandardMaterial({ color: 0x9c6b4a, roughness: 0.8 }), peds.length);
+  const pedHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 8, 6).translate(0, 0.82, 0), new THREE.MeshLambertMaterial({ color: 0x9c6b4a }), peds.length);
   const pedBlobs = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.5, 0.5).rotateX(-Math.PI / 2), blobMat, peds.length);
   for (const m of [pedBody, pedHead, pedBlobs]) {
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

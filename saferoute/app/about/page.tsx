@@ -46,11 +46,11 @@ const ROUTES = [
   { name: "Safest", note: "Lowest measured risk", color: "bg-brand", w: 1 },
 ];
 
-const container = "mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-12";
+const container = "sr-persp mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-12";
 /** A full-height scroll section; on phones the card sits low so the city shows above it. */
 const section = "relative flex min-h-svh items-end pt-24 pb-10 sm:items-center sm:py-28";
 const card =
-  "w-full rounded-[28px] border border-black/[0.06] bg-white/[0.88] p-7 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_30px_70px_-28px_rgb(15_23_42/0.35)] backdrop-blur-xl sm:p-10";
+  "sr-glass-card sr-glare w-full rounded-[28px] p-7 sm:p-10";
 const eyebrow = "flex items-center gap-2.5 text-[13px] font-semibold text-brand-strong";
 const h2 = "sr-display mt-4 text-[1.9rem] leading-[1.08] font-semibold tracking-[-0.03em] text-balance text-ink sm:text-[2.4rem]";
 
@@ -94,7 +94,7 @@ export default function AboutPage() {
     <div className="sr-about relative min-h-dvh bg-[#eef1f4] font-sans text-ink antialiased">
       <CityBackdrop />
 
-      <header className="fixed inset-x-0 top-0 z-30 border-b border-black/[0.06] bg-white/75 backdrop-blur-xl backdrop-saturate-150">
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-white/50 bg-white/60 backdrop-blur-md backdrop-saturate-150">
         <nav className={`${container} flex h-16 items-center justify-between`} aria-label="Main">
           <a href="#top" className="flex items-center gap-2.5" aria-label="SafeRoute, back to top">
             <LogoMark size={28} />
@@ -116,13 +116,9 @@ export default function AboutPage() {
       <main className="relative z-10">
         {/* 1. Hero */}
         <section id="top" data-scene className="relative flex min-h-svh items-start pt-28 pb-16 sm:items-center sm:pt-24">
-          {/* Lifts the text off the city: from the left on wide screens, from the top on phones. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(244_246_248/0.97)_0%,rgb(244_246_248/0.92)_58%,rgb(244_246_248/0)_86%)] md:bg-[linear-gradient(90deg,rgb(244_246_248/0.97)_0%,rgb(244_246_248/0.88)_34%,rgb(244_246_248/0)_64%)]"
-          />
           <div className={container}>
-            <div className="max-w-[36rem]">
+            {/* Frosted glass panel: the city stays visible, softly blurred, behind the text. */}
+            <div data-tilt className="sr-glass-card sr-glare max-w-[38rem] rounded-[32px] p-7 sm:p-10">
               <p
                 className="sr-intro inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/80 py-1.5 pr-3.5 pl-2.5 text-[13px] font-medium text-ink-soft shadow-[0_1px_2px_rgb(0_0_0/0.04)] backdrop-blur"
                 style={delay(80)}
@@ -132,10 +128,10 @@ export default function AboutPage() {
               </p>
               <h1 className="sr-display mt-7 text-[clamp(2.9rem,7vw,5.5rem)] leading-[0.98] font-semibold tracking-[-0.04em]">
                 <span className="sr-mask">
-                  <span style={delay(160)}>Get there.</span>
+                  <span className="sr-depth" style={delay(160)}>Get there.</span>
                 </span>
                 <span className="sr-mask">
-                  <span className="text-brand" style={delay(300)}>
+                  <span className="sr-depth-brand text-brand" style={delay(300)}>
                     Safely.
                   </span>
                 </span>
@@ -153,7 +149,7 @@ export default function AboutPage() {
                   How it works
                 </a>
               </div>
-              <ul className="sr-intro mt-12 hidden flex-wrap gap-x-6 gap-y-2.5 text-[13px] text-ink-muted sm:flex" style={delay(760)}>
+              <ul className="sr-intro mt-12 hidden flex-wrap gap-x-6 gap-y-2.5 text-[13px] font-medium text-ink-soft sm:flex" style={delay(760)}>
                 <Legend swatch="h-1.5 w-6 rounded-full bg-brand" label="Safest route" />
                 <Legend swatch="h-1.5 w-6 rounded-full bg-[#8e8a84]" label="Fastest route" />
                 <Legend swatch="size-3 rounded-full bg-[#e5484d]/70 ring-2 ring-[#e5484d]/25" label="Reported area" />
@@ -164,8 +160,8 @@ export default function AboutPage() {
 
         {/* 2. Reported areas */}
         <section id="reports" data-scene className={section}>
-          <div className={`${container} flex justify-end`}>
-            <div data-reveal="right" className={`${card} max-w-[30rem]`}>
+          <div className={`${container} flex justify-end lg:pr-24 2xl:pr-12`}>
+            <div data-reveal="right" data-tilt className={`${card} max-w-[30rem]`}>
               <Step n="01">See the area</Step>
               <h2 data-reveal className={h2} style={delay(220)}>
                 Reported crime, <span className="text-brand">on the map.</span>
@@ -191,7 +187,7 @@ export default function AboutPage() {
         {/* 3. Routes */}
         <section id="routes" data-scene className={section}>
           <div className={container}>
-            <div data-reveal="left" className={`${card} max-w-[32rem]`}>
+            <div data-reveal="left" data-tilt className={`${card} max-w-[32rem]`}>
               <Step n="02">Compare</Step>
               <h2 data-reveal className={h2} style={delay(220)}>
                 Three routes, <span className="text-brand">one honest choice.</span>
@@ -201,7 +197,7 @@ export default function AboutPage() {
                   <li
                     key={r.name}
                     data-reveal
-                    className="rounded-2xl bg-[#f5f5f7] px-4 py-3.5"
+                    className="rounded-2xl bg-white/45 px-4 py-3.5 ring-1 ring-white/60"
                     style={{ ...delay(320 + i * 110), "--w": r.w } as CSSProperties}
                   >
                     <div className="flex items-baseline justify-between gap-6">
@@ -223,8 +219,8 @@ export default function AboutPage() {
 
         {/* 4. Factors */}
         <section id="factors" data-scene className={section}>
-          <div className={`${container} flex justify-end`}>
-            <div data-reveal="right" className={`${card} max-w-[30rem]`}>
+          <div className={`${container} flex justify-end lg:pr-24 2xl:pr-12`}>
+            <div data-reveal="right" data-tilt className={`${card} max-w-[30rem]`}>
               <Step n="03">What counts</Step>
               <h2 data-reveal className={h2} style={delay(220)}>
                 Lit streets <span className="text-brand">matter.</span>
@@ -249,7 +245,7 @@ export default function AboutPage() {
         {/* 5. Call to action */}
         <section id="start" data-scene className="relative flex min-h-svh flex-col justify-between pt-24">
           <div className={`${container} flex flex-1 items-end pb-10 sm:items-center sm:pb-0`}>
-            <div data-reveal="left" className={`${card} max-w-[32rem]`}>
+            <div data-reveal="left" data-tilt className={`${card} max-w-[32rem]`}>
               <h2 data-reveal className="sr-display text-[2.2rem] leading-[1.05] font-semibold tracking-[-0.035em] text-balance text-ink sm:text-[3rem]" style={delay(120)}>
                 Where do you want <span className="text-brand">to go?</span>
               </h2>
@@ -261,7 +257,7 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-          <footer className="mt-16 border-t border-black/[0.06] bg-white/80 backdrop-blur-xl">
+          <footer className="mt-16 border-t border-white/50 bg-white/65 backdrop-blur-md">
             <div className={`${container} flex flex-wrap items-center justify-between gap-3 py-6 text-[13px] text-ink-muted`}>
               <span className="flex items-center gap-2">
                 <LogoMark size={18} /> SafeRoute · © {new Date().getFullYear()}
