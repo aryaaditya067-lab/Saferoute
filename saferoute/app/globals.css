@@ -631,3 +631,9 @@ html:has(.sr-about) body {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* Text-heavy panels (the FAQ) keep the glass look but are less see-through, so long copy
+   stays readable whatever part of the city is behind it. */
+.sr-glass-card.sr-glass-dense {
+  background: linear-gradient(140deg, rgb(255 255 255 / 0.9), rgb(246 248 250 / 0.8));
+}

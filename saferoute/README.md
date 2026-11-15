@@ -9,7 +9,7 @@ Turn these on by putting `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` in `.e
 
 ## What works
 
-- **Map**: an interactive Leaflet map with OpenStreetMap tiles and proper attribution. It remembers your last view in this browser.
+- **Map**: an interactive Leaflet map with OpenStreetMap tiles and proper attribution. It opens on Bengaluru the first time, then remembers your last view in this browser.
 - **Current location**: uses the browser Geolocation API. It shows a live position dot with an accuracy circle and sets it as your pickup. It handles denied permission, unavailable position, timeouts, unsupported browsers and non-HTTPS pages. If you already granted permission, it locates you on load without asking again.
 - **Place search**: debounced (400 ms, at least 3 characters) and cancellable. Results are ranked near you or near the map view, and you can pick them with the keyboard. It shows loading, empty, error and rate-limit states.
 - **Choosing on the map**: the pin button next to a field lets you click or tap the map. Right-clicking (desktop) or long-pressing (touch) drops a pin you can set as pickup or destination. You can drag either marker to adjust it. Pins get a readable "Near …" address from reverse geocoding.

@@ -54,7 +54,8 @@ export interface MapViewProps {
   onViewChange: (view: { center: Coordinates; bounds: MapBounds; zoom: number }) => void;
 }
 
-const WORLD_VIEW = { center: [20, 0] as L.LatLngTuple, zoom: 2 };
+/** First visit, before any view is remembered: central Bengaluru, the city SafeRoute covers. */
+const DEFAULT_VIEW = { center: [12.9716, 77.5946] as L.LatLngTuple, zoom: 12 };
 const ROUTE_COLOR = "#E87524";
 const ALT_ROUTE_COLOR = "#9A9385";
 
@@ -257,8 +258,8 @@ export default function MapView(props: MapViewProps) {
 
     const stored = readViewport();
     const map = L.map(container, {
-      center: stored ? [stored.lat, stored.lng] : WORLD_VIEW.center,
-      zoom: stored ? stored.zoom : WORLD_VIEW.zoom,
+      center: stored ? [stored.lat, stored.lng] : DEFAULT_VIEW.center,
+      zoom: stored ? stored.zoom : DEFAULT_VIEW.zoom,
       minZoom: 2,
       maxZoom: 19,
       zoomControl: false,

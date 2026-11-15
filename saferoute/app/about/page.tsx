@@ -22,13 +22,42 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#eef1f4" };
 
-/** One per [data-scene] section, in order; the 3D camera moves between them. */
+/** The side index, in page order. The 3D camera moves between the [data-scene] ones; the FAQ has none. */
 const SECTIONS: ScrollSection[] = [
   { id: "top", label: "Home" },
   { id: "reports", label: "See the area" },
   { id: "routes", label: "Compare" },
   { id: "factors", label: "What counts" },
+  { id: "faq", label: "Questions" },
   { id: "start", label: "Start" },
+];
+
+/** What a careful reader would ask before trusting a "safest route". */
+const FAQ: Array<{ q: string; a: string }> = [
+  {
+    q: "Is this official police data?",
+    a: "No. Reported crimes come from news articles, each linked to its source and placed by the locality the article names. Treat them as reports, not records.",
+  },
+  {
+    q: "Does the safest route guarantee I'll be safe?",
+    a: "No. \"Safest\" means the lowest measured risk among the routes compared, using the factors listed for that route. It's a comparison to help you choose, not a promise.",
+  },
+  {
+    q: "Which places does it cover?",
+    a: "Routing works wherever OpenStreetMap has roads. Crime reports are collected for Bengaluru only, so outside the city routes are compared without that factor, and the app says so.",
+  },
+  {
+    q: "What happens when some data is missing?",
+    a: "That factor is left out of the ranking instead of being guessed. Each result shows which factors were actually used.",
+  },
+  {
+    q: "What do you do with my location?",
+    a: "There are no accounts. Saved places stay in your browser. Your location is read only to set the pickup, and the pickup and destination are sent to the SafeRoute server to calculate the route.",
+  },
+  {
+    q: "Are the travel times live?",
+    a: "They're estimates from OpenStreetMap road data and don't include live traffic.",
+  },
 ];
 
 const FACTORS: Array<{ icon: LucideIcon; title: string; body: string }> = [
@@ -105,6 +134,7 @@ export default function AboutPage() {
               <a href="#reports" className="transition-colors hover:text-ink">How it works</a>
               <a href="#routes" className="transition-colors hover:text-ink">Compare</a>
               <a href="#factors" className="transition-colors hover:text-ink">Safety factors</a>
+              <a href="#faq" className="transition-colors hover:text-ink">Questions</a>
             </div>
             <OpenApp size="sm" />
           </div>
@@ -118,7 +148,7 @@ export default function AboutPage() {
         <section id="top" data-scene className="relative flex min-h-svh items-start pt-28 pb-16 sm:items-center sm:pt-24">
           <div className={container}>
             {/* Frosted glass panel: the city stays visible, softly blurred, behind the text. */}
-            <div data-tilt className="sr-glass-card sr-glare max-w-[38rem] rounded-[32px] p-7 sm:p-10">
+            <div data-tilt className="sr-glass-card sr-glare max-w-[33rem] rounded-[32px] p-7 sm:p-9 lg:max-w-[38rem] lg:p-10">
               <p
                 className="sr-intro inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white/80 py-1.5 pr-3.5 pl-2.5 text-[13px] font-medium text-ink-soft shadow-[0_1px_2px_rgb(0_0_0/0.04)] backdrop-blur"
                 style={delay(80)}
@@ -238,6 +268,34 @@ export default function AboutPage() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Questions (no camera stop of its own: the city keeps drifting towards the last view) */}
+        <section id="faq" className="relative py-24 sm:py-32">
+          <div className={container}>
+            <div data-reveal className={`${card} sr-glass-dense mx-auto max-w-3xl`}>
+              <p className={eyebrow}>Questions</p>
+              <h2 className={h2}>
+                Before you <span className="text-brand">trust it.</span>
+              </h2>
+              <div className="mt-8 divide-y divide-black/[0.07] border-y border-black/[0.07]">
+                {FAQ.map((item) => (
+                  <details key={item.q} name="faq" className="group">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-[16px] font-semibold text-ink transition-colors hover:text-brand-strong sm:text-[17px] [&::-webkit-details-marker]:hidden">
+                      {item.q}
+                      <span
+                        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[18px] leading-none font-normal text-ink-soft transition-transform duration-300 group-open:rotate-45"
+                        aria-hidden="true"
+                      >
+                        +
+                      </span>
+                    </summary>
+                    <p className="max-w-[60ch] pb-6 text-[15px] leading-relaxed text-ink-soft sm:text-[16px]">{item.a}</p>
+                  </details>
+                ))}
+              </div>
             </div>
           </div>
         </section>
