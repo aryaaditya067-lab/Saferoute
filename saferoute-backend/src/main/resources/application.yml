@@ -63,7 +63,9 @@ saferoute:
 
   safety:
     # Reports older than this are ignored for the map and for routing.
-    incident-window-days: 365
+    # 1825 days = 5 years, so the full stored history shows on the map; the recency
+    # half-life below still keeps routing weighted towards recent incidents.
+    incident-window-days: 1825
     # A report counts half as much after this many days.
     recency-half-life-days: 120
     # Minimum radius around a reported locality that counts as "the area".
@@ -104,7 +106,7 @@ saferoute:
 
   # One-time history load: POST /api/v1/admin/backfill (see README).
   backfill:
-    months: 12
+    months: 60
     # GDELT is queried in windows of this many days (max 250 articles each).
     window-days: 15
     # When a headline names no locality, download the article and look in its text.

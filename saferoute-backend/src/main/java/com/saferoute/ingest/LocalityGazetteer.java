@@ -49,11 +49,26 @@ public class LocalityGazetteer {
         SafeRouteProperties.BBoxConfig b = properties.city().bbox();
         String box = String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f", b.south(), b.west(), b.north(), b.east());
         String query = "[out:json][timeout:90];nwr[\"place\"~\"^(suburb|neighbourhood|quarter|locality|village)$\"](" + box + ");out center tags;";
-        HttpFetcher.Response r = http.postForm(properties.providers().overpassUrl(), Map.of("Accept", "application/json"),
-                "data=" + URLEncoder.encode(query, StandardCharsets.UTF_8), Duration.ofSeconds(120), 32 * 1024 * 1024);
-        if (!r.ok()) throw new ApiException(ApiException.Code.UPSTREAM_UNAVAILABLE, "Couldn't load locality names (HTTP " + r.status() + ").");
-        places = parse(r.body(), properties.city().aliases(), properties.safety());
-        return places;
+        String body = "data=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
+        // The Overpass setting may list several mirrors (comma-separated); try each until one answers,
+        // since the public servers are often busy. (OverpassClient does the same for routing.)
+        List<String> urls = java.util.Arrays.stream(properties.providers().overpassUrl().split(","))
+                .map(String::trim).filter(u -> !u.isEmpty()).toList();
+        ApiException last = null;
+        for (String url : urls) {
+            try {
+                HttpFetcher.Response r = http.postForm(url, Map.of("Accept", "application/json"), body,
+                        Duration.ofSeconds(120), 32 * 1024 * 1024);
+                if (r.ok()) {
+                    places = parse(r.body(), properties.city().aliases(), properties.safety());
+                    return places;
+                }
+                last = new ApiException(ApiException.Code.UPSTREAM_UNAVAILABLE, "Couldn't load locality names (HTTP " + r.status() + ").");
+            } catch (ApiException e) {
+                last = e;
+            }
+        }
+        throw last != null ? last : new ApiException(ApiException.Code.UPSTREAM_UNAVAILABLE, "Couldn't load locality names.");
     }
 
     static List<Place> parse(String body, List<String> cityAliases, SafeRouteProperties.Safety safety) {

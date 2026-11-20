@@ -85,7 +85,7 @@ public class BackfillService {
     /** Starts loading the last {@code months} months in the background. Returns immediately. */
     public synchronized Progress start(int months) {
         if ("running".equals(progress.get().state())) return progress.get();
-        int m = Math.max(1, Math.min(24, months));
+        int m = Math.max(1, Math.min(60, months));
         LocalDateTime end = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
         LocalDateTime begin = end.minusMonths(m);
         progress.set(new Progress("running", clock.instant().toString(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null));
