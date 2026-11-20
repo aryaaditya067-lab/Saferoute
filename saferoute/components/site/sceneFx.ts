@@ -28,6 +28,28 @@ export function radialGlowTexture() {
   });
 }
 
+/** A soft puffy cloud with a flattish base, transparent at the edges. */
+export function cloudTexture() {
+  return canvasTexture(256, 160, (ctx) => {
+    ctx.clearRect(0, 0, 256, 160);
+    const puff = (x: number, y: number, r: number, a: number) => {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(255,255,255,${a})`);
+      g.addColorStop(0.5, `rgba(255,255,255,${a * 0.55})`);
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 256, 160);
+    };
+    puff(128, 96, 62, 0.95);
+    puff(88, 100, 48, 0.85);
+    puff(172, 98, 52, 0.85);
+    puff(56, 104, 34, 0.7);
+    puff(206, 104, 38, 0.7);
+    puff(120, 72, 52, 0.9);
+    puff(160, 78, 40, 0.8);
+  });
+}
+
 /** Bright along the centre line of a ribbon, fading out to both edges (v runs across). */
 function bandTexture() {
   const tex = canvasTexture(4, 64, (ctx) => {

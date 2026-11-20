@@ -48,10 +48,10 @@ const ROAD = 0x7a7670;
 const ROOF = 0xd9d5cd;
 const STONE = 0xe8dcc4;
 const CONCRETE = 0xc2bdb4;
-const GLASS_TONES = [0xe9eef2, 0xdde6ee, 0xf1f3f5, 0xd5dee6];
-const OFFICE_TONES = [0xf4f1ea, 0xe9e4da, 0xdedad2, 0xf0ebe0];
-const APT_TONES = [0xf6efe3, 0xeee3d0, 0xe9ddc9, 0xf3ece2, 0xe6e0d8, 0xefe5d8];
-const HOUSE_TONES = [0xf3dcc0, 0xf6e8cc, 0xefd2c8, 0xdde7cf, 0xf4e4b0, 0xece8e1, 0xd5e4e6, 0xe9d6e6];
+const GLASS_TONES = [0xcfe1ee, 0xb8d3e6, 0xd8e8f0, 0xbcd6e2];
+const OFFICE_TONES = [0xf1e6c8, 0xe7d3a8, 0xdcc99c, 0xeaddb6];
+const APT_TONES = [0xf3d6a2, 0xe9c594, 0xf4dcae, 0xd9bf84, 0xe8cf9a, 0xf0d8a8];
+const HOUSE_TONES = [0xf4c59a, 0xf7d98f, 0xf0ab92, 0xb6d79a, 0xf3cd6a, 0xdfd7c6, 0x9ccdd4, 0xe4abd0];
 const AWNINGS = [0xb8604a, 0x3f7a6e, 0xc9973f, 0x4f6f9a, 0x8a5a7f, 0x6b8a5a];
 const CAR_COLORS = [0xffffff, 0xf3f3f3, 0xc0c4c9, 0x8d939b, 0x2c2e33, 0xa8322b, 0x2f5a96, 0xd8cdb6, 0x4a5d4f];
 const BUS_COLORS = [0x2f63b0, 0x2f63b0, 0xc7402f, 0x3a8c4e];
@@ -116,7 +116,7 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
 
   // ---- ground and roads --------------------------------------------------------
   const groundB = new MeshBuilder(true);
-  groundB.flat(-450, -450, 450, 450, -0.02, 0xe4dfd5);
+  groundB.flat(-450, -450, 450, 450, -0.02, 0xe8dcc2);
 
   const active = ROADS.filter((c) => Math.abs(c) <= 96);
   const edgesOf = (c: number) => [c - roadWidth(c) / 2, c + roadWidth(c) / 2] as const;
@@ -993,7 +993,7 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
   ];
   const traffic = new Traffic(types, ROADS, roadWidth, intersections, {
     loop: LOOP,
-    perLane: high ? 6 : 3.5,
+    perLane: high ? 4 : 2.5,
     rand: r,
     material: std({ roughness: 0.4, metalness: 0.25, envMapIntensity: 1.1 }),
     blobMaterial: blobMat,
@@ -1007,7 +1007,7 @@ export function buildCity(world: THREE.Group, opts: CityOptions) {
   // People walking round the blocks on the footpaths.
   const peds: Array<{ f: (typeof footpaths)[number]; t: number; speed: number; inset: number }> = [];
   for (const f of footpaths) {
-    const n = high ? 3 + Math.floor(r() * 3) : 2;
+    const n = high ? 2 + Math.floor(r() * 2) : 1;
     for (let k = 0; k < n; k++) peds.push({ f, t: r(), speed: (0.5 + r() * 0.4) * sign(), inset: (r() - 0.5) * 0.3 });
   }
   const pedBody = new THREE.InstancedMesh(

@@ -242,12 +242,12 @@ export function paverTexture(anisotropy: number) {
 export function grassTexture(anisotropy: number) {
   const { c, ctx } = canvas(256, 256);
   const r = seeded(31);
-  ctx.fillStyle = "#93b46c";
+  ctx.fillStyle = "#7fae50";
   ctx.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 3200; i++) {
-    const h = 80 + r() * 25;
-    const l = 36 + r() * 18;
-    ctx.fillStyle = `hsl(${h}, 35%, ${l}%)`;
+    const h = 82 + r() * 26;
+    const l = 34 + r() * 20;
+    ctx.fillStyle = `hsl(${h}, 48%, ${l}%)`;
     ctx.fillRect(r() * 256, r() * 256, 2, 2 + r() * 3);
   }
   return texture(c, anisotropy);

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { buildCity } from "./cityBuild";
-import { addRouteRibbon, arrowGeometry, headingYaw, pinGeometry, radialGlowTexture } from "./sceneFx";
+import { addRouteRibbon, arrowGeometry, cloudTexture, headingYaw, pinGeometry, radialGlowTexture } from "./sceneFx";
 
 /**
  * Daylit city behind the about page (see cityBuild). A reported-crime area glows red,
@@ -44,13 +44,13 @@ function skyEnvironment(renderer: THREE.WebGLRenderer) {
   const geo = new THREE.SphereGeometry(10, 48, 24);
   const pos = geo.attributes.position!;
   const colors = new Float32Array(pos.count * 3);
-  const zenith = new THREE.Color(0xa7c8e8);
-  const horizon = new THREE.Color(BG);
+  const zenith = new THREE.Color(0x6aa6e6);
+  const horizon = new THREE.Color(0xd2e2f2);
   const below = new THREE.Color(0xb9b1a4);
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const t = pos.getY(i) / 10;
-    if (t >= 0) c.copy(horizon).lerp(zenith, Math.pow(t, 0.6));
+    if (t >= 0) c.copy(horizon).lerp(zenith, Math.pow(t, 0.42));
     else c.copy(horizon).lerp(below, Math.min(1, -t * 3));
     colors.set([c.r, c.g, c.b], i * 3);
   }
@@ -100,17 +100,17 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   } catch {
     return; // No WebGL: the page still reads fine on its plain background.
   }
-  // Above 1.5x the city costs far more to draw and looks no sharper behind the page text.
-  const maxDpr = Math.min(deviceDpr, 1.5);
+  // The scene renders crisply up to 2x; the adaptive loop steps back down if a PC can't keep up.
+  const maxDpr = Math.min(deviceDpr, 2);
   let dpr = maxDpr;
   renderer.setPixelRatio(dpr);
   renderer.shadowMap.enabled = true;
-  // Plain PCF: much cheaper per pixel than PCFSoft, and the static map is filtered well enough.
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // Soft PCF for gentle shadow edges; the map is drawn once, so the extra per-pixel cost is paid once.
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   // Nothing that casts a shadow moves, so the shadow map is drawn once, not every frame.
   renderer.shadowMap.autoUpdate = false;
   renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 1.07;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(BG, 0.005);
@@ -119,14 +119,14 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
   // The same sky, softened, behind the city: blue overhead fading into the haze at the horizon.
   scene.background = env.texture;
   scene.backgroundBlurriness = 0.35;
-  scene.environmentIntensity = 0.35;
+  scene.environmentIntensity = 0.48;
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 700);
   const world = new THREE.Group();
   scene.add(world);
 
   // Lambert surfaces get no light from the sky map, so the hemisphere light carries that soft fill.
-  scene.add(new THREE.HemisphereLight(0xe6eefa, 0xd6cbb8, 1.05));
-  const sun = new THREE.DirectionalLight(0xfff3e4, 2.6);
+  scene.add(new THREE.HemisphereLight(0xdcebff, 0xd8cbb0, 1.0));
+  const sun = new THREE.DirectionalLight(0xfff0db, 2.85);
   sun.position.copy(SUN_DIR).multiplyScalar(200);
   sun.castShadow = true;
   const shadowSize = small ? 1024 : 2048;
@@ -141,6 +141,19 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     quality: small ? "low" : "high",
     cameraPath: KEYS.map((k) => k.p),
   });
+
+  // Soft clouds drifting high over the city, each a camera-facing sprite that fades into the haze.
+  const cloudTex = cloudTexture();
+  const clouds = new THREE.Group();
+  for (let i = 0; i < 16; i++) {
+    const m = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.6 + Math.random() * 0.35, depthWrite: false, fog: false });
+    const s = new THREE.Sprite(m);
+    const w = 72 + Math.random() * 98;
+    s.scale.set(w, w * 0.56, 1);
+    s.position.set((Math.random() - 0.5) * 560, 66 + Math.random() * 74, (Math.random() - 0.5) * 560);
+    clouds.add(s);
+  }
+  scene.add(clouds);
 
   const glowTex = radialGlowTexture();
   const soft = { transparent: true, depthWrite: false, toneMapped: false } as const;
@@ -339,6 +352,10 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     const wave = (time * 0.35) % 1;
     ring.scale.setScalar(1 + wave * 0.12);
     ringMat.opacity = 0.7 * (1 - wave);
+    for (const s of clouds.children) {
+      s.position.x += dt * 1.1;
+      if (s.position.x > 300) s.position.x -= 600;
+    }
     city.update(time, reduce ? dt * 0.3 : dt);
     fastest.update(time);
     safest.update(time);
@@ -390,6 +407,8 @@ function mountScene(canvas: HTMLCanvasElement): (() => void) | undefined {
     city.dispose();
     fastest.dispose();
     safest.dispose();
+    clouds.children.forEach((s) => ((s as THREE.Sprite).material as THREE.Material).dispose());
+    cloudTex.dispose();
     glowTex.dispose();
     env.dispose();
     renderer.dispose();
