@@ -5,9 +5,11 @@ import { AuthContext, loadUser, persistUser, type AuthUser } from "@/lib/auth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     setUser(loadUser());
+    setReady(true);
   }, []);
 
   const login = useCallback((u: AuthUser) => {
@@ -21,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext value={{ user, login, logout }}>
+    <AuthContext value={{ user, ready, login, logout }}>
       {children}
     </AuthContext>
   );

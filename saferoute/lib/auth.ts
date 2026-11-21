@@ -12,12 +12,14 @@ export interface AuthUser {
 
 export interface AuthContextValue {
   user: AuthUser | null;
+  ready: boolean;
   login: (user: AuthUser) => void;
   logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
   user: null,
+  ready: false,
   login: () => {},
   logout: () => {},
 });

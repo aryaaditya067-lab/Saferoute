@@ -3,14 +3,18 @@
 import { ArrowRight, Building2, Eye, EyeOff, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { CityBackdrop } from "@/components/site/CityBackdrop";
 import { LogoMark } from "@/components/ui/Logo";
 import { useAuth, type UserRole } from "@/lib/auth";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { user, ready, login } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (ready && user) router.replace("/");
+  }, [ready, user, router]);
   const [role, setRole] = useState<UserRole>("user");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,11 +54,10 @@ export default function LoginPage() {
             <span className="text-[17px] font-semibold tracking-tight">SafeRoute</span>
           </Link>
           <Link
-            href="/"
-            className="group inline-flex h-9 items-center justify-center gap-2 rounded-full bg-brand px-4 text-[14px] font-semibold text-white shadow-[0_1px_2px_rgb(0_0_0/0.08),0_8px_20px_-6px_rgb(232_117_36/0.55)] transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-brand-strong"
+            href="/about"
+            className="text-[14px] font-medium text-ink-soft transition-colors hover:text-brand"
           >
-            Open app
-            <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+            About
           </Link>
         </nav>
       </header>
@@ -177,13 +180,17 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 border-t border-black/[0.06] pt-5 text-center">
-              <Link
-                href="/"
+              <button
+                type="button"
+                onClick={() => {
+                  login({ name: "Guest", email: "guest@saferoute.app", role: "user" });
+                  router.push("/");
+                }}
                 className="inline-flex items-center gap-1.5 text-[14px] font-medium text-ink-soft transition-colors hover:text-brand"
               >
                 Continue without signing in
                 <ArrowRight className="size-3.5" />
-              </Link>
+              </button>
             </div>
           </div>
         </div>
