@@ -1,9 +1,10 @@
 "use client";
 
-import { Info, MapPinned, MessageSquarePlus, WifiOff, X } from "lucide-react";
+import { Info, LogOut, MapPinned, MessageSquarePlus, User, WifiOff, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useAuth } from "@/lib/auth";
 import { ReportDialog } from "@/components/community/ReportDialog";
 import { CrimeLayerToggle } from "@/components/map/CrimeLayerToggle";
 import { LayerToggle } from "@/components/map/LayerToggle";
@@ -12,6 +13,8 @@ import type { MapFocus, PinKind } from "@/components/map/MapView";
 import { NavigationPanel } from "@/components/navigation/NavigationPanel";
 import { SavedPlacesDialog, savedPlaceSubtitle } from "@/components/navigation/SavedPlacesDialog";
 import type { RouteState } from "@/components/route/RoutePanel";
+import { SOSButton } from "@/components/sos/SOSButton";
+import { ShareTripButton } from "@/components/trip/ShareTripButton";
 import { LogoMark } from "@/components/ui/Logo";
 import { NoticeToast, useNotices } from "@/components/ui/Notices";
 import { describeError, isAbortError, serverMessage } from "@/lib/errors";
@@ -56,6 +59,7 @@ function pinLocation(point: Coordinates, source: "map" | "geolocation", accuracy
 }
 
 export function SafeRouteApp() {
+  const { user, logout } = useAuth();
   const [pickup, setPickup] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
   const [mode, setMode] = useState<TravelMode>("driving");
@@ -391,6 +395,7 @@ export function SafeRouteApp() {
   }, [clearRoute, destination, pickup]);
 
   const routes = routeState.status === "success" ? routeState.response.routes : null;
+  const selectedRoute = routes?.find((r) => r.id === selectedRouteId) ?? routes?.[0];
   const pickLabel =
     pickTarget?.kind === "pickup"
       ? "pickup"
@@ -430,17 +435,42 @@ export function SafeRouteApp() {
         ref={headerRef}
         className="pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-[1100] md:top-4 md:left-4"
       >
-        <div className="sr-float-in sr-glass pointer-events-auto inline-flex items-center gap-2 rounded-full py-1.5 pr-3.5 pl-1.5 shadow-control">
-          <LogoMark size={30} />
-          <span className="text-[15px] font-semibold tracking-tight text-ink">SafeRoute</span>
-          <Link
-            href="/about"
-            aria-label="About SafeRoute"
-            title="About SafeRoute"
-            className="-mr-2 ml-0.5 inline-flex size-7 items-center justify-center rounded-lg text-ink-muted hover:bg-cream-deep hover:text-ink"
-          >
-            <Info className="size-4" aria-hidden="true" />
-          </Link>
+        <div className="sr-float-in pointer-events-auto flex items-center gap-2">
+          <div className="sr-glass inline-flex items-center gap-2 rounded-full py-1.5 pr-3.5 pl-1.5 shadow-control">
+            <LogoMark size={30} />
+            <span className="text-[15px] font-semibold tracking-tight text-ink">SafeRoute</span>
+            <Link
+              href="/about"
+              aria-label="About SafeRoute"
+              title="About SafeRoute"
+              className="-mr-2 ml-0.5 inline-flex size-7 items-center justify-center rounded-lg text-ink-muted hover:bg-cream-deep hover:text-ink"
+            >
+              <Info className="size-4" aria-hidden="true" />
+            </Link>
+          </div>
+
+          {user ? (
+            <div className="sr-glass flex items-center gap-1.5 rounded-full py-1.5 pr-2 pl-2 shadow-control">
+              <div className="flex size-6 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden text-[13px] font-medium text-ink md:inline">{user.name}</span>
+              {user.role === "government" && (
+                <span className="hidden rounded-full bg-locate/10 px-1.5 py-0.5 text-[10px] font-semibold text-locate md:inline">GOV</span>
+              )}
+              <button type="button" onClick={logout} className="inline-flex size-6 items-center justify-center rounded-lg text-ink-muted hover:bg-cream-deep hover:text-ink" aria-label="Sign out">
+                <LogOut className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="sr-glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink shadow-control hover:bg-cream-deep"
+            >
+              <User className="size-4" />
+              <span className="hidden sm:inline">Sign in</span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -575,6 +605,18 @@ export function SafeRouteApp() {
           }}
         />
       )}
+
+      {/* Share trip — shows when a route has been found */}
+      {routeState.status === "success" && pickup && destination && (
+        <div className="sr-float-in pointer-events-none fixed bottom-4 left-1/2 z-[1150] -translate-x-1/2 md:bottom-auto md:top-[76px] md:left-[412px] md:translate-x-0">
+          <div className="pointer-events-auto">
+            <ShareTripButton pickup={pickup} destination={destination} selectedRoute={selectedRoute} />
+          </div>
+        </div>
+      )}
+
+      {/* SOS emergency button */}
+      <SOSButton />
 
       {savedDialog && (
         <SavedPlacesDialog
