@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, useSyncExternalStore, type ReactNode } from "react";
 import { AuthContext, loadUser, persistUser, type AuthUser } from "@/lib/auth";
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [ready, setReady] = useState(false);
+const emptySubscribe = () => () => {};
 
-  useEffect(() => {
-    setUser(loadUser());
-    setReady(true);
-  }, []);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    return loadUser();
+  });
+
+  const ready = isClient;
 
   const login = useCallback((u: AuthUser) => {
     persistUser(u);

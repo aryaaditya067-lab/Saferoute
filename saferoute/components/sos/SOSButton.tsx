@@ -28,14 +28,17 @@ export function SOSButton() {
   }, []);
 
   useEffect(() => {
-    if (countdown === null || countdown < 0) return;
-    if (countdown === 0) {
-      setTriggered(true);
-      setCountdown(null);
-      window.location.href = "tel:112";
-      return;
-    }
-    const timer = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    if (countdown === null || countdown <= 0) return;
+    const timer = setTimeout(() => {
+      const next = countdown - 1;
+      if (next === 0) {
+        setTriggered(true);
+        setCountdown(null);
+        window.location.href = "tel:112";
+      } else {
+        setCountdown(next);
+      }
+    }, 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
 
