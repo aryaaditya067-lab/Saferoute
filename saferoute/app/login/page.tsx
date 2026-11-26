@@ -13,7 +13,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (ready && user) router.replace("/");
+    if (ready && user) router.replace("/app");
   }, [ready, user, router]);
   const [role, setRole] = useState<UserRole>("user");
   const [name, setName] = useState("");
@@ -38,7 +38,7 @@ export default function LoginPage() {
     setLoading(true);
     setTimeout(() => {
       login({ name: name.trim(), email: email.trim(), role });
-      router.push("/");
+      router.push("/app");
     }, 600);
   }
 
@@ -49,12 +49,12 @@ export default function LoginPage() {
       {/* Fixed header */}
       <header className="fixed inset-x-0 top-0 z-30 border-b border-white/50 bg-white/60 backdrop-blur-md backdrop-saturate-150">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-12">
-          <Link href="/about" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <LogoMark size={28} />
             <span className="text-[17px] font-semibold tracking-tight">SafeRoute</span>
           </Link>
           <Link
-            href="/about"
+            href="/"
             className="text-[14px] font-medium text-ink-soft transition-colors hover:text-brand"
           >
             About
@@ -184,7 +184,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   login({ name: "Guest", email: "guest@saferoute.app", role: "user" });
-                  router.push("/");
+                  router.push("/app");
                 }}
                 className="inline-flex items-center gap-1.5 text-[14px] font-medium text-ink-soft transition-colors hover:text-brand"
               >

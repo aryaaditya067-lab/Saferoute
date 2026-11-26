@@ -28,7 +28,7 @@ function buildShareUrl(pickup: Location | null, destination: Location | null): s
   const params = new URLSearchParams();
   if (pickup) params.set("from", `${pickup.lat},${pickup.lng}`);
   if (destination) params.set("to", `${destination.lat},${destination.lng}`);
-  return `${window.location.origin}/?${params.toString()}`;
+  return `${window.location.origin}/app?${params.toString()}`;
 }
 
 export function ShareTripButton({ pickup, destination, selectedRoute }: ShareTripProps) {

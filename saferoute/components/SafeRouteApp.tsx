@@ -442,7 +442,7 @@ export function SafeRouteApp() {
             <LogoMark size={30} />
             <span className="text-[15px] font-semibold tracking-tight text-ink">SafeRoute</span>
             <Link
-              href="/about"
+              href="/"
               aria-label="About SafeRoute"
               title="About SafeRoute"
               className="-mr-2 ml-0.5 inline-flex size-7 items-center justify-center rounded-lg text-ink-muted hover:bg-cream-deep hover:text-ink"
