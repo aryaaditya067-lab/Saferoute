@@ -12,14 +12,14 @@ function Encode-Command([string]$script) {
 
 # Pull the latest code from GitHub and install any new website packages.
 if (Test-Path (Join-Path $root ".git")) {
-    Write-Host "GitHub se latest code le rahe hain..." -ForegroundColor Yellow
+    Write-Host "Getting the latest code from GitHub..." -ForegroundColor Yellow
     git -C $root pull --ff-only
-    if ($LASTEXITCODE -ne 0) { Write-Host "git pull nahi hua, purane code se chala rahe hain." -ForegroundColor Red }
+    if ($LASTEXITCODE -ne 0) { Write-Host "Could not pull from GitHub; starting the code already on this PC." -ForegroundColor Red }
 }
 $lock = Join-Path $frontend "package-lock.json"
 $stamp = Join-Path $frontend "node_modules\.package-lock.json"
 if (-not (Test-Path $stamp) -or (Get-Item $lock).LastWriteTime -gt (Get-Item $stamp).LastWriteTime) {
-    Write-Host "Website packages install ho rahe hain..." -ForegroundColor Yellow
+    Write-Host "Installing website packages..." -ForegroundColor Yellow
     Push-Location $frontend
     npm.cmd install --no-audit --no-fund
     Pop-Location
@@ -35,7 +35,7 @@ if ($env:SAFEROUTE_ADMIN_TOKEN) {
         $bytes = New-Object byte[] 32
         [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
         Set-Content -Path $tokenFile -Value (($bytes | ForEach-Object { $_.ToString("x2") }) -join "") -NoNewline -Encoding ascii
-        Write-Host "Naya admin token bana: $tokenFile" -ForegroundColor Yellow
+        Write-Host "Created a new admin token: $tokenFile" -ForegroundColor Yellow
     }
     $adminToken = (Get-Content $tokenFile -Raw).Trim()
 }
@@ -49,10 +49,10 @@ if (Test-Path $envFile) {
     }
     Write-Host "Database: $env:SAFEROUTE_DB_URL" -ForegroundColor Yellow
 } else {
-    Write-Host "saferoute-backend\.env nahi mila: H2 file database use hoga." -ForegroundColor Yellow
+    Write-Host "saferoute-backend\.env not found: using the built-in H2 file database." -ForegroundColor Yellow
 }
 
-Write-Host "1/3 Backend start ho raha hai (naya window)..." -ForegroundColor Yellow
+Write-Host "1/3 Starting the backend (new window)..." -ForegroundColor Yellow
 $backendCmd = @"
 `$env:JAVA_HOME = '$jbr'
 `$env:Path = "`$env:JAVA_HOME\bin;`$env:Path"
@@ -63,7 +63,7 @@ Set-Location '$backend'
 "@
 Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-EncodedCommand", (Encode-Command $backendCmd)
 
-Write-Host "2/3 Backend ka wait (pehli baar 1-3 min lag sakte hain)..." -ForegroundColor Yellow
+Write-Host "2/3 Waiting for the backend (the first start can take 1-3 minutes)..." -ForegroundColor Yellow
 $ready = $false
 for ($i = 0; $i -lt 120; $i++) {
     Start-Sleep -Seconds 5
@@ -73,35 +73,35 @@ for ($i = 0; $i -lt 120; $i++) {
     } catch { Write-Host "." -NoNewline }
 }
 Write-Host ""
-if (-not $ready) { Write-Host "Backend start nahi hua. Backend window ka error dekho." -ForegroundColor Red; Read-Host "Enter dabao"; exit 1 }
+if (-not $ready) { Write-Host "The backend did not start. Check the backend window for the error." -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
 Write-Host "Backend ready." -ForegroundColor Green
 
 # Load 1 year of crime history once (skipped if already running/done).
 try {
     $bf = Invoke-RestMethod "http://localhost:8080/api/v1/admin/backfill" -TimeoutSec 5
-    Write-Host "Abhi crimes stored: $($status.incidentsInWindow)"
+    Write-Host "Crime reports stored: $($status.incidentsInWindow)"
     if ($bf.state -ne "running" -and $status.incidentsInWindow -lt 50) {
         Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/backfill?months=12" -Headers @{ "X-Admin-Token" = $adminToken } | Out-Null
-        Write-Host "1 saal ka crime data load hona shuru (background mein chalega)." -ForegroundColor Green
+        Write-Host "Started loading 1 year of crime reports (runs in the background)." -ForegroundColor Green
     }
-} catch { Write-Host "Backfill check skip: $($_.Exception.Message)" }
+} catch { Write-Host "Skipped the crime data check: $($_.Exception.Message)" }
 
-Write-Host "3/3 Website start ho rahi hai (naya window)..." -ForegroundColor Yellow
+Write-Host "3/3 Starting the website (new window)..." -ForegroundColor Yellow
 $frontCmd = "Set-Location '$frontend'; npm.cmd run dev"
 Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-EncodedCommand", (Encode-Command $frontCmd)
 Start-Sleep -Seconds 12
 Start-Process "http://localhost:3000"
-Write-Host "Ho gaya! Browser me http://localhost:3000 khula hai." -ForegroundColor Green
+Write-Host "Done! SafeRoute is open in your browser at http://localhost:3000." -ForegroundColor Green
 
 # Route factors (main roads, shops, police, hospitals) need the city's OpenStreetMap copy once per PC.
 if (-not (Test-Path (Join-Path $backend "data\osm\roads.json"))) {
-    Write-Host "Map data (OpenStreetMap) download ho raha hai, 1-5 min lag sakte hain..." -ForegroundColor Yellow
+    Write-Host "Downloading map data (OpenStreetMap), this can take 1-5 minutes..." -ForegroundColor Yellow
     try {
         $osm = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/osm-snapshot" -Headers @{ "X-Admin-Token" = $adminToken } -TimeoutSec 900
         Write-Host "Map data ready: $($osm.roads) roads, $($osm.places) places, $($osm.police) police stations." -ForegroundColor Green
     } catch {
-        Write-Host "Map data abhi download nahi hua (Overpass busy). Agli baar start karne par phir try hoga." -ForegroundColor Red
+        Write-Host "Could not download map data right now (Overpass is busy). It will try again next time you start SafeRoute." -ForegroundColor Red
     }
 }
 Write-Host "Crime data progress: Invoke-RestMethod http://localhost:8080/api/v1/admin/backfill"
-Read-Host "Ye window band karne ke liye Enter dabao"
+Read-Host "Press Enter to close this window"
