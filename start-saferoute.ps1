@@ -4,6 +4,12 @@ $backend = Join-Path $root "saferoute-backend"
 $frontend = Join-Path $root "saferoute"
 $jbr = "C:\Program Files\Android\Android Studio\jbr"
 
+# Windows strips the double quotes from a plain -Command argument, which turned the backend
+# commands into a parse error so none of them ran. An encoded command arrives unchanged.
+function Encode-Command([string]$script) {
+    [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+}
+
 # Pull the latest code from GitHub and install any new website packages.
 if (Test-Path (Join-Path $root ".git")) {
     Write-Host "GitHub se latest code le rahe hain..." -ForegroundColor Yellow
@@ -34,6 +40,18 @@ if ($env:SAFEROUTE_ADMIN_TOKEN) {
     $adminToken = (Get-Content $tokenFile -Raw).Trim()
 }
 
+# Database settings (PostgreSQL) live in saferoute-backend\.env, which git ignores. The backend
+# window inherits them; without the file the backend uses its built-in H2 file database.
+$envFile = Join-Path $backend ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') { Set-Item "env:$($matches[1])" $matches[2].Trim() }
+    }
+    Write-Host "Database: $env:SAFEROUTE_DB_URL" -ForegroundColor Yellow
+} else {
+    Write-Host "saferoute-backend\.env nahi mila: H2 file database use hoga." -ForegroundColor Yellow
+}
+
 Write-Host "1/3 Backend start ho raha hai (naya window)..." -ForegroundColor Yellow
 $backendCmd = @"
 `$env:JAVA_HOME = '$jbr'
@@ -43,7 +61,7 @@ Set-Location '$backend'
 .\gradlew.bat --stop
 .\gradlew.bat bootRun
 "@
-Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $backendCmd
+Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-EncodedCommand", (Encode-Command $backendCmd)
 
 Write-Host "2/3 Backend ka wait (pehli baar 1-3 min lag sakte hain)..." -ForegroundColor Yellow
 $ready = $false
@@ -70,9 +88,20 @@ try {
 
 Write-Host "3/3 Website start ho rahi hai (naya window)..." -ForegroundColor Yellow
 $frontCmd = "Set-Location '$frontend'; npm.cmd run dev"
-Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $frontCmd
+Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-EncodedCommand", (Encode-Command $frontCmd)
 Start-Sleep -Seconds 12
 Start-Process "http://localhost:3000"
 Write-Host "Ho gaya! Browser me http://localhost:3000 khula hai." -ForegroundColor Green
+
+# Route factors (main roads, shops, police, hospitals) need the city's OpenStreetMap copy once per PC.
+if (-not (Test-Path (Join-Path $backend "data\osm\roads.json"))) {
+    Write-Host "Map data (OpenStreetMap) download ho raha hai, 1-5 min lag sakte hain..." -ForegroundColor Yellow
+    try {
+        $osm = Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/osm-snapshot" -Headers @{ "X-Admin-Token" = $adminToken } -TimeoutSec 900
+        Write-Host "Map data ready: $($osm.roads) roads, $($osm.places) places, $($osm.police) police stations." -ForegroundColor Green
+    } catch {
+        Write-Host "Map data abhi download nahi hua (Overpass busy). Agli baar start karne par phir try hoga." -ForegroundColor Red
+    }
+}
 Write-Host "Crime data progress: Invoke-RestMethod http://localhost:8080/api/v1/admin/backfill"
 Read-Host "Ye window band karne ke liye Enter dabao"
