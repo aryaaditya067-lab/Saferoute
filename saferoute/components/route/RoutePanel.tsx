@@ -1,13 +1,13 @@
 "use client";
 
 import { ChevronDown, CircleAlert, RotateCw, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatArrival, formatDistance, formatDuration } from "@/lib/format";
 import { RouteBadges } from "./RouteBadges";
 import { MetroCard } from "./MetroCard";
 import { RouteSafetyFacts } from "./RouteSafetyFacts";
-import type { RouteResponse, RouteSafety, SafetyFactor } from "@/types";
+import type { RouteLabel, RouteResponse, RouteSafety, SafetyFactor } from "@/types";
 
 export type RouteState =
   | { status: "idle" }
@@ -23,7 +23,20 @@ interface RoutePanelProps {
   onClear: () => void;
 }
 
+type RouteItem = RouteResponse["routes"][number];
+
+const SLOTS: RouteLabel[] = ["fastest", "balanced", "safest"];
+const SLOT_NAMES: Record<RouteLabel, string> = { fastest: "Fastest", balanced: "Balanced", safest: "Safest" };
+const SAME_ROUTE_REASON: Record<RouteLabel, string> = {
+  fastest: "",
+  balanced: "it is also the best mix of time and risk on this trip.",
+  safest: "it is also the lowest-risk road on this trip.",
+};
+
 export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear }: RoutePanelProps) {
+  // The card last tapped, for this result only (two cards can show the same route).
+  const [tapped, setTapped] = useState<{ at: string; slot: RouteLabel } | null>(null);
+
   if (state.status === "idle") return null;
 
   if (state.status === "loading") return <LoadingRoutes />;
@@ -52,27 +65,20 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
 
   const method = state.response.safety;
   const ranked = routes.some((r) => r.labels?.length);
-  // Show Fastest, Balanced, Safest in that order (then any other options).
-  const order = (r: (typeof routes)[number]) =>
-    r.labels?.includes("fastest") ? 0 : r.labels?.includes("balanced") ? 1 : r.labels?.includes("safest") ? 2 : 3;
-  const shown = ranked ? [...routes].sort((a, b) => order(a) - order(b)) : routes;
-  const byLabel = (label: string) => routes.find((r) => r.labels?.length === 1 && r.labels[0] === label);
-  const fastestRoute = byLabel("fastest");
-  const safestRoute = byLabel("safest");
-  const risk = (r?: (typeof routes)[number]) => r?.safety?.riskIndex ?? null;
-  const noteFor = (route: (typeof routes)[number]): string | null => {
-    const own = risk(route);
-    if (own == null) return null;
-    if (route === safestRoute && risk(fastestRoute) != null && risk(fastestRoute)! < own) {
-      return "The Fastest route measured lower risk than this one on this trip.";
-    }
-    if (route.labels?.length === 1 && route.labels[0] === "balanced" && safestRoute && risk(safestRoute) != null) {
-      if (safestRoute.durationSeconds <= route.durationSeconds && risk(safestRoute)! <= own) {
-        return "The Safest route is also quicker on this trip.";
-      }
-    }
-    return null;
-  };
+
+  // Always three cards: Fastest, Balanced, Safest. One route can fill several of them; it is
+  // never swapped for a riskier route just to have three different ones.
+  const slots = SLOTS.flatMap((slot) => {
+    const route = routes.find((r) => r.labels?.includes(slot));
+    return route ? [{ slot, route }] : [];
+  });
+  const inSlots = new Set(slots.map((s) => s.route.id));
+  const others = routes.filter((r) => !inSlots.has(r.id));
+  const activeSlot = tapped?.at === computedAt ? tapped.slot : "safest";
+  const highlighted =
+    slots.find((s) => s.slot === activeSlot && s.route.id === selectedId)?.slot ?? slots.find((s) => s.route.id === selectedId)?.slot;
+
+  const cardProps = { computedDate, method };
 
   return (
     <section aria-labelledby="routes-heading" className="animate-fade-in">
@@ -91,72 +97,60 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
 
       {state.response.transit && <MetroCard transit={state.response.transit} />}
 
-      <ul className="sr-stagger flex flex-col gap-2.5" role="radiogroup" aria-label="Available routes">
-        {shown.map((route) => {
-          const note = noteFor(route);
-          const selected = route.id === selectedId;
-          // Without backend ranking, only label what the provider's numbers show.
-          const tags: string[] = [];
-          if (!ranked && routes.length > 1 && route.durationSeconds === fastestDuration) tags.push("Fastest");
-          if (!ranked && routes.length > 1 && route.distanceMeters === shortestDistance && route.durationSeconds !== fastestDuration) {
-            tags.push("Shortest");
-          }
-          return (
-            <li key={route.id}>
-              <div
-                className={`rounded-[18px] bg-paper transition-[box-shadow,transform] duration-200 ${
-                  selected
-                    ? "shadow-[0_0_0_2px_var(--color-brand),0_10px_28px_-10px_rgb(0_0_0/0.18)]"
-                    : "shadow-[0_0_0_1px_rgb(0_0_0/0.07)] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgb(0_0_0/0.1),0_10px_24px_-12px_rgb(0_0_0/0.2)]"
-                }`}
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onSelect(route.id)}
-                  className="flex w-full flex-col px-4 py-3.5 text-left"
-                >
-                  <span className="flex items-start justify-between gap-3">
-                    <span className="min-w-0">
-                      {route.labels && route.labels.length > 0 ? (
-                        <RouteBadges labels={route.labels} />
-                      ) : (
-                        ranked && <span className="text-[12px] font-semibold text-ink-muted">Other option</span>
-                      )}
-                      <span className="mt-1.5 flex items-baseline gap-2">
-                        <span className="text-[22px] leading-none font-semibold tracking-tight text-ink tabular-nums">
-                          {formatDuration(route.durationSeconds)}
-                        </span>
-                        <span className="text-[14px] text-ink-muted tabular-nums">{formatDistance(route.distanceMeters)}</span>
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {tags.length > 0 && (
-                        <span className="rounded-full bg-brand-soft px-2 py-[3px] text-[12px] font-semibold text-brand-strong">{tags.join(" · ")}</span>
-                      )}
-                      <span
-                        className={`flex size-5 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-brand" : "border-black/15"}`}
-                        aria-hidden="true"
-                      >
-                        {selected && <span className="size-2.5 rounded-full bg-brand" />}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="mt-1.5 block truncate text-[13px] text-ink-muted">
-                    {route.summary ? `via ${route.summary}` : `Arrive around ${formatArrival(route.durationSeconds, computedDate)}`}
-                  </span>
-                  {route.safety && <QuickFacts safety={route.safety} />}
-                  {selected && route.safety && method && (
-                    <RouteSafetyFacts safety={route.safety} serviceRadiusMeters={method.serviceRadiusMeters} />
-                  )}
-                  {selected && note && <span className="mt-2.5 block rounded-lg bg-[#fdf3e1] px-2.5 py-2 text-[12px] font-medium text-[#7a4a06]">{note}</span>}
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {ranked ? (
+        <>
+          <ul className="sr-stagger flex flex-col gap-2.5" role="radiogroup" aria-label="Fastest, Balanced and Safest routes">
+            {slots.map(({ slot, route }, i) => {
+              const sameAs = slots.slice(0, i).find((s) => s.route.id === route.id)?.slot;
+              return (
+                <li key={slot}>
+                  <RouteCard
+                    {...cardProps}
+                    route={route}
+                    badge={<RouteBadges labels={[slot]} />}
+                    selected={highlighted === slot}
+                    compact={sameAs !== undefined}
+                    note={sameAs ? `Same route as ${SLOT_NAMES[sameAs]}: ${SAME_ROUTE_REASON[slot]}` : null}
+                    onClick={() => {
+                      setTapped({ at: computedAt, slot });
+                      onSelect(route.id);
+                    }}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+          {others.length > 0 && (
+            <details className="group mt-2.5">
+              <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl px-3.5 py-2.5 text-[13px] font-medium text-ink-soft shadow-[0_0_0_1px_rgb(0_0_0/0.07)] [&::-webkit-details-marker]:hidden">
+                More routes ({others.length})
+                <ChevronDown className="size-4 text-ink-muted transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <ul className="mt-2.5 flex flex-col gap-2.5" role="radiogroup" aria-label="More routes">
+                {others.map((route) => (
+                  <li key={route.id}>
+                    <RouteCard {...cardProps} route={route} selected={route.id === selectedId} onClick={() => onSelect(route.id)} />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      ) : (
+        <ul className="sr-stagger flex flex-col gap-2.5" role="radiogroup" aria-label="Available routes">
+          {routes.map((route) => {
+            // Without backend ranking, only label what the provider's numbers show.
+            const tags: string[] = [];
+            if (routes.length > 1 && route.durationSeconds === fastestDuration) tags.push("Fastest");
+            if (routes.length > 1 && route.distanceMeters === shortestDistance && route.durationSeconds !== fastestDuration) tags.push("Shortest");
+            return (
+              <li key={route.id}>
+                <RouteCard {...cardProps} route={route} tags={tags} selected={route.id === selectedId} onClick={() => onSelect(route.id)} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {method && (
         <details className="group mt-3 rounded-xl px-3.5 py-2.5 text-[12px] leading-relaxed text-ink-soft shadow-[0_0_0_1px_rgb(0_0_0/0.07)]">
@@ -171,6 +165,12 @@ export function RoutePanel({ state, selectedRouteId, onSelect, onRetry, onClear 
                   .join(", ")}.`
               : "No safety data was available for these routes, so only the fastest is marked."}
           </p>
+          {ranked && (
+            <p className="mt-1">
+              Safest is the route with the lowest measured risk, Balanced the best mix of time and risk. When the fastest road
+              is also the safest, the cards say so instead of calling a riskier road “Safest”.
+            </p>
+          )}
           <p className="mt-1">{method.crimeDataNote}</p>
           {method.crimeDataAvailable && (
             <p className="mt-1">
@@ -220,6 +220,68 @@ const FACTOR_NAMES: Record<SafetyFactor, string> = {
 function totalWeight(weights: Partial<Record<SafetyFactor, number>>): number {
   const sum = Object.values(weights).reduce((a, b) => a + (b ?? 0), 0);
   return sum > 0 ? sum : 1;
+}
+
+interface RouteCardProps {
+  route: RouteItem;
+  selected: boolean;
+  onClick: () => void;
+  computedDate: Date;
+  method: RouteResponse["safety"];
+  badge?: ReactNode;
+  tags?: string[];
+  /** Same route as a card above: just the label, time and why it repeats. */
+  compact?: boolean;
+  note?: string | null;
+}
+
+function RouteCard({ route, selected, onClick, computedDate, method, badge, tags = [], compact = false, note }: RouteCardProps) {
+  return (
+    <div
+      className={`rounded-[18px] bg-paper transition-[box-shadow,transform] duration-200 ${
+        selected
+          ? "shadow-[0_0_0_2px_var(--color-brand),0_10px_28px_-10px_rgb(0_0_0/0.18)]"
+          : "shadow-[0_0_0_1px_rgb(0_0_0/0.07)] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgb(0_0_0/0.1),0_10px_24px_-12px_rgb(0_0_0/0.2)]"
+      }`}
+    >
+      <button type="button" role="radio" aria-checked={selected} onClick={onClick} className="flex w-full flex-col px-4 py-3.5 text-left">
+        <span className="flex items-start justify-between gap-3">
+          <span className="min-w-0">
+            {badge}
+            <span className={`flex items-baseline gap-2 ${badge ? "mt-1.5" : ""}`}>
+              <span
+                className={`leading-none font-semibold tracking-tight text-ink tabular-nums ${compact ? "text-[17px]" : "text-[22px]"}`}
+              >
+                {formatDuration(route.durationSeconds)}
+              </span>
+              <span className="text-[14px] text-ink-muted tabular-nums">{formatDistance(route.distanceMeters)}</span>
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            {tags.length > 0 && (
+              <span className="rounded-full bg-brand-soft px-2 py-[3px] text-[12px] font-semibold text-brand-strong">{tags.join(" · ")}</span>
+            )}
+            <span
+              className={`flex size-5 items-center justify-center rounded-full border-2 transition-colors ${selected ? "border-brand" : "border-black/15"}`}
+              aria-hidden="true"
+            >
+              {selected && <span className="size-2.5 rounded-full bg-brand" />}
+            </span>
+          </span>
+        </span>
+        {note && <span className="mt-1.5 block text-[12.5px] leading-snug font-medium text-safe">{note}</span>}
+        {!compact && (
+          <>
+            <span className="mt-1.5 block truncate text-[13px] text-ink-muted">
+              {route.summary ? `via ${route.summary}` : `Arrive around ${formatArrival(route.durationSeconds, computedDate)}`}
+            </span>
+            {route.safety && <QuickFacts safety={route.safety} />}
+          </>
+        )}
+        {selected && route.safety && method && <RouteSafetyFacts safety={route.safety} serviceRadiusMeters={method.serviceRadiusMeters} />}
+      </button>
+    </div>
+  );
 }
 
 /** Loading state: placeholder cards; after a few seconds it explains why long trips take a while. */

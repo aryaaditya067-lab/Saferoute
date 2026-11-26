@@ -193,16 +193,16 @@ class RouteSafetyServiceTest {
         List<RouteCandidate> dominated = List.of(routes.get(0),
                 new RouteCandidate(RouteScenario.ROUTE_B, 6000, 1400, "slow"), routes.get(2));
         var labels2 = SafetyScorer.label(dominated, List.of(s.apply(0.8, 0.0), s.apply(0.4, 0.0), s.apply(0.2, 0.0)));
-        // Three routes always get three different labels.
+        // The safest route is both quicker and lower-risk than it, so it gets no badge.
         assertEquals(java.util.Set.of(SafetyScorer.Label.FASTEST), labels2.get(0));
-        assertEquals(java.util.Set.of(SafetyScorer.Label.BALANCED), labels2.get(1));
-        assertEquals(java.util.Set.of(SafetyScorer.Label.SAFEST), labels2.get(2));
+        assertEquals(null, labels2.get(1));
+        assertEquals(java.util.Set.of(SafetyScorer.Label.BALANCED, SafetyScorer.Label.SAFEST), labels2.get(2));
 
-        // Fastest is also lowest-risk: still one label each (the app notes it on the Safest card).
+        // Fastest is also lowest-risk: it is the Safest (and Balanced); no slower, riskier route is called "Safest".
         var labels3 = SafetyScorer.label(routes, List.of(s.apply(0.1, 0.0), s.apply(0.4, 0.0), s.apply(0.3, 0.0)));
-        assertEquals(java.util.Set.of(SafetyScorer.Label.FASTEST), labels3.get(0));
-        assertEquals(java.util.Set.of(SafetyScorer.Label.BALANCED), labels3.get(1));
-        assertEquals(java.util.Set.of(SafetyScorer.Label.SAFEST), labels3.get(2));
+        assertEquals(java.util.Set.of(SafetyScorer.Label.FASTEST, SafetyScorer.Label.BALANCED, SafetyScorer.Label.SAFEST), labels3.get(0));
+        assertEquals(null, labels3.get(1));
+        assertEquals(null, labels3.get(2));
 
         // One route: it carries all three.
         var labels1 = SafetyScorer.label(routes.subList(0, 1), List.of(s.apply(0.5, 0.0)));

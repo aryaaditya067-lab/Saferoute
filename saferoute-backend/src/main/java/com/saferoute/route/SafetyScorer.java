@@ -165,45 +165,21 @@ public class SafetyScorer {
         boolean ranked = safety.stream().allMatch(s -> s.riskIndex() != null);
         if (!ranked) return labels;
 
+        // Each label goes to the route that earns it, even when one route earns several. Spreading
+        // them over different routes put "Safest" on a route the fastest one beat on risk too.
         int n = routes.size();
-        if (n == 1) {
-            labels.get(fastest).addAll(EnumSet.of(Label.BALANCED, Label.SAFEST));
-            return labels;
-        }
-        // Each label goes to a different route whenever there are enough routes.
-        // Safest = lowest measured risk among the routes other than the fastest; if the
-        // fastest route is itself lower-risk, the app says so on the "Safest" card.
-        int safest = argMinExcept(n, fastest, -1, i -> safety.get(i).riskIndex(), i -> routes.get(i).durationSeconds());
+        int safest = argMin(n, i -> safety.get(i).riskIndex(), i -> routes.get(i).durationSeconds());
         labels.computeIfAbsent(safest, k -> EnumSet.noneOf(Label.class)).add(Label.SAFEST);
 
         double minD = routes.stream().mapToDouble(RouteCandidate::durationSeconds).min().orElse(0);
         double maxD = routes.stream().mapToDouble(RouteCandidate::durationSeconds).max().orElse(0);
         double minR = safety.stream().mapToDouble(RouteSafety::riskIndex).min().orElse(0);
         double maxR = safety.stream().mapToDouble(RouteSafety::riskIndex).max().orElse(0);
-        IndexValue combined = i -> 0.5 * norm(routes.get(i).durationSeconds(), minD, maxD) + 0.5 * norm(safety.get(i).riskIndex(), minR, maxR);
-
-        int balanced;
-        if (n == 2) {
-            balanced = combined.at(fastest) <= combined.at(safest) ? fastest : safest;
-        } else {
-            balanced = argMinExcept(n, fastest, safest, combined, i -> routes.get(i).durationSeconds());
-        }
+        // Best even trade of time and risk; a route beaten on both by another can never win it.
+        int balanced = argMin(n, i -> 0.5 * norm(routes.get(i).durationSeconds(), minD, maxD) + 0.5 * norm(safety.get(i).riskIndex(), minR, maxR),
+                i -> routes.get(i).durationSeconds());
         labels.computeIfAbsent(balanced, k -> EnumSet.noneOf(Label.class)).add(Label.BALANCED);
         return labels;
-    }
-
-    private static int argMinExcept(int size, int skipA, int skipB, IndexValue primary, IndexValue tieBreak) {
-        Integer best = null;
-        for (int i = 0; i < size; i++) {
-            if (i == skipA || i == skipB) continue;
-            if (best == null) {
-                best = i;
-                continue;
-            }
-            double a = primary.at(i), b = primary.at(best);
-            if (a < b - 1e-9 || (Math.abs(a - b) <= 1e-9 && tieBreak.at(i) < tieBreak.at(best))) best = i;
-        }
-        return best == null ? skipA : best;
     }
 
     /**
