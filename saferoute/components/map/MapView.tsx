@@ -1,8 +1,7 @@
 "use client";
 
 import L from "leaflet";
-import { useEffect, useRef, useState } from "react";
-import { hotspotGrid } from "@/lib/hotspots";
+import { useEffect, useRef } from "react";
 import { config } from "@/lib/config";
 import { formatCoordinates, normalizeCoordinates } from "@/lib/geo";
 import { readViewport, writeViewport } from "@/lib/viewport";
@@ -20,7 +19,8 @@ import type {
   Route,
   TransitStation,
 } from "@/types";
-import { communityIcon, destinationIcon, incidentIcon, LOCATE_SVG, metroIcon, pickupIcon, routeHeadIcon, userIcon } from "./markers";
+import { CrimeLayer } from "./crimeLayer";
+import { communityIcon, destinationIcon, LOCATE_SVG, metroIcon, pickupIcon, routeHeadIcon, userIcon } from "./markers";
 
 export type MapFocus =
   | { id: number; type: "point"; point: Coordinates; zoom?: number }
@@ -123,58 +123,6 @@ function fitRoutes(map: L.Map, routes: Route[] | null, insets: MapInsets) {
   });
 }
 
-function formatDay(isoDate: string): string {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  if (!y || !m || !d) return isoDate;
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-/** Popup for a reported crime. Text only via textContent; links are https/http only. */
-function incidentPopup(incident: Incident): HTMLElement {
-  const root = document.createElement("div");
-  root.className = "sr-incident-popup";
-  const kind = document.createElement("div");
-  kind.className = "sr-incident-kind";
-  kind.textContent = `${incident.crimeLabel} · ${incident.locality}`;
-  const when = document.createElement("div");
-  when.className = "sr-incident-meta";
-  when.textContent = `Reported for ${formatDay(incident.occurredOn)}`;
-  const headline = document.createElement("div");
-  headline.className = "sr-incident-headline";
-  headline.textContent = incident.headline;
-  const quote = document.createElement("blockquote");
-  quote.className = "sr-incident-quote";
-  quote.textContent = `“${incident.evidenceQuote}”`;
-  root.append(kind, when, headline, quote);
-  const sources = document.createElement("div");
-  sources.className = "sr-incident-sources";
-  for (const source of incident.sources) {
-    let href: URL;
-    try {
-      href = new URL(source.url);
-    } catch {
-      continue;
-    }
-    if (href.protocol !== "https:" && href.protocol !== "http:") continue;
-    const a = document.createElement("a");
-    a.href = href.toString();
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.textContent = `${source.site || href.hostname} ↗`;
-    sources.append(a);
-  }
-  const note = document.createElement("div");
-  note.className = "sr-incident-note";
-  note.textContent = "News report · not official police data";
-  root.append(sources, note);
-  return root;
-}
-
 function communityPopup(spot: CommunitySpot, threshold: string): HTMLElement {
   const root = document.createElement("div");
   root.className = "sr-incident-popup";
@@ -234,7 +182,7 @@ export default function MapView(props: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
-  const incidentLayerRef = useRef<L.LayerGroup | null>(null);
+  const crimeLayerRef = useRef<CrimeLayer | null>(null);
   const communityLayerRef = useRef<L.LayerGroup | null>(null);
   const metroLayerRef = useRef<L.LayerGroup | null>(null);
   const routeAnimRef = useRef<number | null>(null);
@@ -246,7 +194,6 @@ export default function MapView(props: MapViewProps) {
   const locateControlRef = useRef<LocateControl | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  const [zoom, setZoom] = useState<number | null>(null);
 
   // Latest props for Leaflet event handlers, so handlers are bound once.
   const latest = useRef(props);
@@ -283,10 +230,10 @@ export default function MapView(props: MapViewProps) {
     L.control.zoom({ position: "bottomright" }).addTo(map);
     locateControlRef.current = locate;
 
-    // Reported-crime areas sit under the routes; their 💬 markers sit above them.
+    // Reported-crime zones sit under the routes; crime dots sit above them.
     map.createPane("incidentAreas").style.zIndex = "350";
     map.createPane("incidentMarkers").style.zIndex = "620";
-    incidentLayerRef.current = L.layerGroup().addTo(map);
+    crimeLayerRef.current = new CrimeLayer(map, { getInsets: () => latest.current.insets });
     communityLayerRef.current = L.layerGroup().addTo(map);
     metroLayerRef.current = L.layerGroup().addTo(map);
     routeLayerRef.current = L.layerGroup().addTo(map);
@@ -357,7 +304,6 @@ export default function MapView(props: MapViewProps) {
       });
     };
 
-    map.on("zoomend", () => setZoom(map.getZoom()));
     map.on("moveend", () => {
       const center = normalizeCoordinates(map.getCenter());
       writeViewport({ lat: center.lat, lng: center.lng, zoom: map.getZoom() });
@@ -365,15 +311,15 @@ export default function MapView(props: MapViewProps) {
     });
 
     mapRef.current = map;
-    setZoom(map.getZoom());
     reportView();
 
     return () => {
+      crimeLayerRef.current?.destroy();
+      crimeLayerRef.current = null;
       map.off();
       map.remove();
       mapRef.current = null;
       routeLayerRef.current = null;
-      incidentLayerRef.current = null;
       communityLayerRef.current = null;
       metroLayerRef.current = null;
       if (routeAnimRef.current != null) cancelAnimationFrame(routeAnimRef.current);
@@ -523,102 +469,10 @@ export default function MapView(props: MapViewProps) {
     }
   }, [props.userPosition]);
 
-  // ---- Reported crimes -------------------------------------------------------
-  // Zoomed out: ~1 km squares shaded by how much crime was reported there.
-  // Zoomed in (14+): each report's area and its 💬 marker as well.
-  const showIncidentDetail = (zoom ?? 0) >= 14;
+  // ---- Reported crimes (zones zoomed out, clustered dots zoomed in) ----------
   useEffect(() => {
-    const layer = incidentLayerRef.current;
-    if (!layer) return;
-    layer.clearLayers();
-    const cells = hotspotGrid(props.incidents);
-    const maxWeight = Math.max(0, ...cells.map((c) => c.weight));
-    for (const cell of cells) {
-      const intensity = maxWeight > 0 ? cell.weight / maxWeight : 0;
-      // A soft glow: three stacked circles, strongest in the middle, sized by how busy the area is.
-      const outer = 340 + 340 * intensity;
-      for (const [k, o] of [[0.55, 0.2], [0.28, 0.3]] as const) {
-        layer.addLayer(
-          L.circle([cell.lat, cell.lng], {
-            pane: "incidentAreas",
-            radius: outer * k,
-            stroke: false,
-            fillColor: "#E5484D",
-            fillOpacity: o * (0.5 + 0.5 * intensity),
-            interactive: false,
-            className: "sr-hotspot-core",
-          }),
-        );
-      }
-      const rect = L.circle([cell.lat, cell.lng], {
-        pane: "incidentAreas",
-        radius: outer,
-        stroke: false,
-        fillColor: "#E5484D",
-        fillOpacity: 0.07 + 0.08 * intensity,
-      });
-      const text = document.createElement("div");
-      text.className = "sr-incident-popup";
-      const head = document.createElement("div");
-      head.className = "sr-incident-kind";
-      head.textContent = `${cell.count} reported crime${cell.count === 1 ? "" : "s"} in this 1 km area`;
-      const meta = document.createElement("div");
-      meta.className = "sr-incident-meta";
-      meta.textContent = `${cell.violent} violent · from news reports · zoom in to see each one`;
-      text.append(head, meta);
-      rect.bindPopup(text, { maxWidth: 260 });
-      layer.addLayer(rect);
-      // Zoomed out, a small numbered bubble marks each area so it stays visible at any zoom.
-      if (!showIncidentDetail) {
-        const size = Math.round(20 + 8 * intensity);
-        const bubble = L.marker([cell.lat, cell.lng], {
-          pane: "incidentMarkers",
-          icon: L.divIcon({
-            className: "sr-marker",
-            html: `<div class="sr-hot" style="width:${size}px;height:${size}px">${cell.count}</div>`,
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2],
-          }),
-          title: `${cell.count} reported crime${cell.count === 1 ? "" : "s"} in this area`,
-          riseOnHover: true,
-        });
-        bubble.bindPopup(text, { maxWidth: 260 });
-        layer.addLayer(bubble);
-      }
-    }
-    if (!showIncidentDetail) return;
-    // Many reports share one locality's centre; draw that area once so it doesn't stack up dark red.
-    const drawnAreas = new Set<string>();
-    for (const incident of props.incidents) {
-      const center: L.LatLngExpression = [incident.lat, incident.lng];
-      const areaKey = `${incident.lat.toFixed(4)},${incident.lng.toFixed(4)},${incident.radiusMeters}`;
-      if (!drawnAreas.has(areaKey)) {
-        drawnAreas.add(areaKey);
-        layer.addLayer(
-          L.circle(center, {
-            pane: "incidentAreas",
-            radius: incident.radiusMeters,
-            stroke: true,
-            color: "#E5484D",
-            weight: 1,
-            opacity: 0.22,
-            fillColor: "#E5484D",
-            fillOpacity: 0.06,
-            interactive: false,
-          }),
-        );
-      }
-      const marker = L.marker(center, {
-        pane: "incidentMarkers",
-        icon: incidentIcon,
-        title: `${incident.crimeLabel} · ${incident.locality}`,
-        alt: `${incident.crimeLabel} reported in ${incident.locality}`,
-        riseOnHover: true,
-      });
-      marker.bindPopup(() => incidentPopup(incident), { maxWidth: 300, className: "sr-incident-popup-wrap" });
-      layer.addLayer(marker);
-    }
-  }, [props.incidents, showIncidentDetail]);
+    crimeLayerRef.current?.setIncidents(props.incidents);
+  }, [props.incidents]);
 
   // ---- Community spots ---------------------------------------------------------
   const threshold = props.communityConfirmThreshold;

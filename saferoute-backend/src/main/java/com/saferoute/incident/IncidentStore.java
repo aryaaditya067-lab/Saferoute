@@ -39,6 +39,9 @@ public interface IncidentStore {
 
     void addSource(long incidentId, Incident.Source source, Instant fetchedAt);
 
+    /** Deletes the incident and its sources, and forgets their URLs so a later run reads them again. */
+    void forget(long incidentId);
+
     List<Incident> findInBox(BBox box, LocalDate since);
 
     List<Incident> findSince(LocalDate since);

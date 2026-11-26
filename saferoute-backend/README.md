@@ -30,6 +30,14 @@ The server runs at http://localhost:8080.
 
 Data is stored in `./data/` as an H2 database file. There is nothing to install. Delete the folder to start fresh.
 
+**Using PostgreSQL instead:** create a database and user, then set these before `bootRun` (tables are created on start):
+
+```powershell
+$env:SAFEROUTE_DB_URL = "jdbc:postgresql://localhost:5432/saferoute"
+$env:SAFEROUTE_DB_USER = "saferoute"
+$env:SAFEROUTE_DB_PASSWORD = "<your password>"
+```
+
 **MiMo setup:** enable the Web Search plugin in the MiMo console (Plugin Management). Each ingest run makes three web-search requests plus one short reading request per new article (up to 40), and MiMo bills web search per request on top of tokens.
 
 ## Load one year of crime history (fast, no AI)

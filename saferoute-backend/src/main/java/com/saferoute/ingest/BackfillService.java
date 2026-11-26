@@ -7,6 +7,7 @@ import com.saferoute.incident.Incident;
 import com.saferoute.incident.IncidentStore;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,6 +34,7 @@ import org.springframework.stereotype.Service;
 public class BackfillService {
 
     private static final Logger log = LoggerFactory.getLogger(BackfillService.class);
+    private static final int GDELT_ATTEMPTS = 4;
 
     public record Progress(
             String state,
@@ -62,6 +64,7 @@ public class BackfillService {
     private final SafeRouteProperties properties;
     private final Clock clock;
     private final AtomicReference<Progress> progress = new AtomicReference<>(Progress.idle());
+    Duration retryDelay = Duration.ofSeconds(30);
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "crime-backfill");
         t.setDaemon(true);
@@ -118,7 +121,7 @@ public class BackfillService {
                 Map<String, MimoClient.Citation> pages = new LinkedHashMap<>();
                 for (String terms : List.of(GdeltClient.VIOLENT_TERMS, GdeltClient.PROPERTY_TERMS)) {
                     try {
-                        for (MimoClient.Citation cit : gdelt.articlesBetween(terms, w[0], w[1])) {
+                        for (MimoClient.Citation cit : articlesWithRetry(terms, w[0], w[1])) {
                             ArticleVerifier.parseHttpUrl(cit.url()).ifPresent(u -> pages.putIfAbsent(ArticleVerifier.canonical(u), cit));
                         }
                     } catch (ApiException e) {
@@ -139,6 +142,57 @@ public class BackfillService {
         publish(c, error == null ? "done" : "failed", error);
     }
 
+    public record RecheckResult(int checked, int kept, List<String> removed) {}
+
+    /**
+     * Applies the current classification and placement rules to every stored report, using its
+     * stored headline and evidence sentence. Reports that fail are deleted and their articles
+     * forgotten, so the next history load reads them again under the current rules.
+     */
+    public synchronized RecheckResult recheck() {
+        List<LocalityGazetteer.Place> places = gazetteer.places();
+        List<Incident> all = store.findSince(LocalDate.of(1970, 1, 1));
+        List<String> removed = new ArrayList<>();
+        for (Incident incident : all) {
+            String reason = recheckFailure(incident, places, properties.city().aliases());
+            if (reason == null) continue;
+            store.forget(incident.id());
+            removed.add(incident.id() + " " + incident.locality() + " (" + reason + "): " + incident.headline());
+        }
+        if (!removed.isEmpty()) log.info("Recheck removed {} of {} reports", removed.size(), all.size());
+        return new RecheckResult(all.size(), all.size() - removed.size(), removed);
+    }
+
+    /** Why a stored report no longer passes, or null if it does. */
+    static String recheckFailure(Incident incident, List<LocalityGazetteer.Place> places, List<String> cityAliases) {
+        if (CrimeClassifier.classify(incident.headline()).isEmpty()) return "not a street crime";
+        Optional<LocalityGazetteer.Place> where = Placement.fromHeadline(incident.headline(), places);
+        if (where.isEmpty()) where = Placement.fromSentence(incident.headline(), incident.evidenceQuote(), places, cityAliases);
+        if (where.isEmpty()) return "location not supported by its source";
+        if (!where.get().name().equals(incident.locality())) return "source names " + where.get().name();
+        return null;
+    }
+
+    /** GDELT throttles bursts with 429s and slow handshakes; wait and retry instead of losing the window. */
+    private List<MimoClient.Citation> articlesWithRetry(String terms, LocalDateTime from, LocalDateTime to) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return gdelt.articlesBetween(terms, from, to);
+            } catch (ApiException e) {
+                boolean busy = e.code() == ApiException.Code.RATE_LIMITED || e.code() == ApiException.Code.UPSTREAM_TIMEOUT;
+                if (!busy || attempt >= GDELT_ATTEMPTS) throw e;
+                long waitMs = retryDelay.toMillis() * attempt;
+                log.info("GDELT busy ({}); retrying {}..{} in {}s", e.getMessage(), from, to, waitMs / 1000);
+                try {
+                    Thread.sleep(waitMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+    }
+
     private void process(MimoClient.Citation cit, List<LocalityGazetteer.Place> places, Counter c) {
         String url = cit.url();
         if (store.sourceExists(url) || store.wasProcessed(url)) {
@@ -153,7 +207,7 @@ public class BackfillService {
             store.markProcessed(url, "no_crime_in_headline", clock.instant());
             return;
         }
-        Optional<LocalityGazetteer.Place> place = LocalityGazetteer.find(title, places);
+        Optional<LocalityGazetteer.Place> place = Placement.fromHeadline(title, places);
         String quote = title;
         if (place.isEmpty() && properties.backfill().fetchArticles()) {
             URI uri = ArticleVerifier.parseHttpUrl(url).orElse(null);
@@ -165,19 +219,11 @@ public class BackfillService {
             String text = HtmlText.mainText(html.get());
             if (text.length() > 6000) text = text.substring(0, 6000);
             for (String sentence : text.split("(?<=[.!?])\\s+")) {
-                Optional<LocalityGazetteer.Place> p = LocalityGazetteer.find(sentence, places);
-                if (p.isPresent() && CrimeClassifier.mentionsCrime(sentence)) {
-                    place = p;
-                    quote = sentence.length() > 400 ? sentence.substring(0, 400) : sentence;
-                    break;
-                }
-            }
-            if (place.isEmpty()) {
-                // A locality anywhere in the opening text, if the story is clearly about one place.
-                Optional<LocalityGazetteer.Place> p = LocalityGazetteer.find(text.length() > 1500 ? text.substring(0, 1500) : text, places);
+                Optional<LocalityGazetteer.Place> p = Placement.fromSentence(title, sentence, places, properties.city().aliases());
                 if (p.isPresent()) {
                     place = p;
-                    quote = title;
+                    quote = sentence.trim();
+                    break;
                 }
             }
         }

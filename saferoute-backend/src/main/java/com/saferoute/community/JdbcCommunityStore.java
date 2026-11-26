@@ -5,7 +5,6 @@ import com.saferoute.geo.LatLng;
 import java.security.SecureRandom;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -30,7 +29,7 @@ public class JdbcCommunityStore implements CommunityStore {
         jdbc.update(connection -> {
             var st = connection.prepareStatement(
                     "INSERT INTO community_report (category, lat, lng, note, reporter_key, ip_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS);
+                    new String[] {"id"});
             st.setString(1, r.category().name());
             st.setDouble(2, r.location().lat());
             st.setDouble(3, r.location().lng());

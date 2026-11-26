@@ -25,6 +25,7 @@ dependencies {
     // Spring MVC keeps its default JSON mapper for API responses.
     implementation("com.fasterxml.jackson.core:jackson-databind")
     runtimeOnly("com.h2database:h2")
+    runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

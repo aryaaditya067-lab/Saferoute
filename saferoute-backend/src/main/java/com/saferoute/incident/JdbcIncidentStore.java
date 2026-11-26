@@ -4,7 +4,6 @@ import com.saferoute.geo.BBox;
 import com.saferoute.geo.LatLng;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -21,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class JdbcIncidentStore implements IncidentStore {
+
+    // Naming the key column keeps Postgres from returning every column as a "generated key".
+    private static final String[] ID_COLUMN = {"id"};
 
     private final JdbcTemplate jdbc;
 
@@ -42,8 +44,13 @@ public class JdbcIncidentStore implements IncidentStore {
 
     @Override
     public void markProcessed(String url, String outcome, Instant at) {
-        jdbc.update("MERGE INTO processed_url (url, outcome, processed_at) KEY (url) VALUES (?, ?, ?)",
-                truncate(url, 2000), truncate(outcome, 40), Timestamp.from(at));
+        String key = truncate(url, 2000);
+        int updated = jdbc.update("UPDATE processed_url SET outcome = ?, processed_at = ? WHERE url = ?",
+                truncate(outcome, 40), Timestamp.from(at), key);
+        if (updated == 0) {
+            jdbc.update("INSERT INTO processed_url (url, outcome, processed_at) VALUES (?, ?, ?)",
+                    key, truncate(outcome, 40), Timestamp.from(at));
+        }
     }
 
     @Override
@@ -62,7 +69,7 @@ public class JdbcIncidentStore implements IncidentStore {
             var statement = connection.prepareStatement(
                     "INSERT INTO incident (crime_type, category, headline, locality, locality_key, location_label, lat, lng, radius_m, occurred_on, evidence_quote, created_at) "
                             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS);
+                    ID_COLUMN);
             statement.setString(1, incident.type().name());
             statement.setString(2, incident.type().category.name());
             statement.setString(3, truncate(incident.headline(), 500));
@@ -90,6 +97,16 @@ public class JdbcIncidentStore implements IncidentStore {
                 "INSERT INTO incident_source (incident_id, url, title, site, published_on, fetched_at) VALUES (?, ?, ?, ?, ?, ?)",
                 incidentId, truncate(source.url(), 2000), truncate(source.title(), 500), truncate(source.site(), 200),
                 source.publishedOn(), Timestamp.from(fetchedAt));
+    }
+
+    @Override
+    @Transactional
+    public void forget(long incidentId) {
+        for (String url : jdbc.queryForList("SELECT url FROM incident_source WHERE incident_id = ?", String.class, incidentId)) {
+            jdbc.update("DELETE FROM processed_url WHERE url = ?", truncate(url, 2000));
+        }
+        jdbc.update("DELETE FROM incident_source WHERE incident_id = ?", incidentId);
+        jdbc.update("DELETE FROM incident WHERE id = ?", incidentId);
     }
 
     @Override
@@ -138,7 +155,7 @@ public class JdbcIncidentStore implements IncidentStore {
     public long startRun(Instant startedAt) {
         KeyHolder keys = new GeneratedKeyHolder();
         jdbc.update(connection -> {
-            var statement = connection.prepareStatement("INSERT INTO ingest_run (started_at) VALUES (?)", Statement.RETURN_GENERATED_KEYS);
+            var statement = connection.prepareStatement("INSERT INTO ingest_run (started_at) VALUES (?)", ID_COLUMN);
             statement.setTimestamp(1, Timestamp.from(startedAt));
             return statement;
         }, keys);

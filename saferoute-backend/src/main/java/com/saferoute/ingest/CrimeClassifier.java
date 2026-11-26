@@ -31,7 +31,8 @@ public final class CrimeClassifier {
     /** Headlines about courts, old cases, fraud or policy are not new street incidents. */
     private static final Pattern SKIP = p(
             "court|sentenc\\w*|convict\\w*|acquit\\w*|verdict|bail|charge ?sheet|years? (ago|after|later)|cyber|online|"
-                    + "fraud|scam|cheat\\w*|ponzi|digital arrest|crypto|loan app|dowry|suicide|accident|crash|"
+                    + "fraud|scam|cheat\\w*|ponzi|digital arrest|crypto|loan app|dowry|suicide|"
+                    + "accident\\w*|crash\\w*|collid\\w*|collision|mishap|overturn\\w*|toppl\\w*|hits? (a |the )?(divider|tree|pole|wall)|"
                     + "statistics|data shows|report says|crime rate|ncrb|minister|assembly|election|opinion|editorial");
 
     private CrimeClassifier() {}

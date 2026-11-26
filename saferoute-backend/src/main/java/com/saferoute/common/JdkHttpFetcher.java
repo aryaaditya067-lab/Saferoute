@@ -21,7 +21,8 @@ public class JdkHttpFetcher implements HttpFetcher {
     public JdkHttpFetcher(String userAgent) {
         this.userAgent = userAgent;
         this.client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                // Includes the TLS handshake, which busy/throttling servers (e.g. GDELT) can stretch past 10s.
+                .connectTimeout(Duration.ofSeconds(30))
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
     }

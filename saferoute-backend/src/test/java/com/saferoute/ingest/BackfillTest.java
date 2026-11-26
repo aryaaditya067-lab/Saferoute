@@ -5,15 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.saferoute.incident.CrimeType;
 import com.saferoute.incident.Incident;
+import com.saferoute.incident.IncidentStore;
 import com.saferoute.support.FakeHttp;
 import com.saferoute.support.InMemoryIncidentStore;
 import com.saferoute.support.TestProps;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /** Synthetic GDELT / Overpass fixtures in the providers' documented formats. */
@@ -104,5 +107,110 @@ class BackfillTest {
         service.run(LocalDateTime.of(2026, 9, 24, 10, 0), LocalDateTime.of(2026, 10, 9, 10, 0));
         assertEquals(0, service.status().accepted());
         assertEquals(5, service.status().alreadyKnown());
+    }
+
+    /** Srinagar and Varanasi are Bengaluru localities and also cities in news-site menus. */
+    static final String AMBIGUOUS_GAZETTEER = "{\"elements\":["
+            + "{\"type\":\"node\",\"id\":1,\"lat\":12.9439,\"lon\":77.5542,\"tags\":{\"place\":\"suburb\",\"name\":\"Srinagar\"}},"
+            + "{\"type\":\"node\",\"id\":2,\"lat\":13.0305,\"lon\":77.6861,\"tags\":{\"place\":\"neighbourhood\",\"name\":\"Varanasi\"}},"
+            + "{\"type\":\"node\",\"id\":3,\"lat\":12.9352,\"lon\":77.6245,\"tags\":{\"place\":\"suburb\",\"name\":\"Koramangala\"}}]}";
+
+    static final String NEWS_MENU = "<nav>Edition IN Cities Bengaluru Mumbai Delhi Srinagar Varanasi Mysuru Pune</nav>";
+
+    @Test
+    void placementIgnoresMenusOtherCitiesAndCrashes() {
+        List<LocalityGazetteer.Place> places = LocalityGazetteer.parse(AMBIGUOUS_GAZETTEER, List.of("Bengaluru", "Bangalore"), TestProps.safety());
+        List<String> city = List.of("Bengaluru", "Bangalore");
+
+        // Prose naming the crime, the locality and the city places it.
+        assertEquals("Koramangala", Placement.fromSentence("Bike stolen, police begin probe",
+                "Bengaluru: A motorcycle was stolen from outside a house in Koramangala on Friday night.", places, city).orElseThrow().name());
+        // A story from another city never says Bengaluru, so a shared locality name proves nothing.
+        assertTrue(Placement.fromSentence("Rowdy-sheeter murdered in Melukote village | Mysuru News",
+                "The rowdy-sheeter was murdered near the Srinagar bus stand on Monday night.", places, city).isEmpty());
+        // Menus and link lists are not evidence, even when they mention a crime.
+        assertTrue(Placement.fromSentence("Bengaluru murder: Husband paid hitman",
+                "Also Read Bengaluru murder: Srinagar police probe killing", places, city).isEmpty());
+        assertTrue(Placement.fromSentence("Bengaluru murder", "Bengaluru murder Srinagar " + "Edition IN ".repeat(60), places, city).isEmpty());
+
+        assertTrue(CrimeClassifier.classify("4 college friends killed, 2 injured after SUV hits divider, crashes into truck").isEmpty());
+        assertTrue(CrimeClassifier.classify("4 killed as bus, truck collide in Periyapatna").isEmpty());
+    }
+
+    @Test
+    void backfillSkipsLocalitiesFoundOnlyInPageMenus() {
+        FakeHttp http = new FakeHttp((String url, String body) -> {
+            if (url.startsWith("https://overpass.test")) return FakeHttp.json(AMBIGUOUS_GAZETTEER);
+            if (url.startsWith("https://gdelt.test")) {
+                if (url.contains("theft")) return FakeHttp.json("");
+                return FakeHttp.json(gdelt(row("https://news.test/m", "Guest worker murdered in drunken brawl in Coimbatore", "20261005T080000Z")));
+            }
+            if (url.equals("https://news.test/m")) {
+                return FakeHttp.html(NEWS_MENU + "<article><p>A guest worker was murdered by a co-worker after a drunken brawl, police said.</p></article>");
+            }
+            return FakeHttp.status(404);
+        });
+        var props = TestProps.properties("");
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+        BackfillService service = new BackfillService(new GdeltClient(http, props), new LocalityGazetteer(http, props), http, store, props, CLOCK);
+
+        service.run(LocalDateTime.of(2026, 9, 24, 10, 0), LocalDateTime.of(2026, 10, 9, 10, 0));
+        assertEquals(0, service.status().accepted());
+        assertEquals(1, service.status().noLocality());
+    }
+
+    @Test
+    void recheckRemovesReportsThatNoLongerPass() {
+        FakeHttp http = new FakeHttp((String url, String body) ->
+                url.startsWith("https://overpass.test") ? FakeHttp.json(AMBIGUOUS_GAZETTEER) : FakeHttp.status(404));
+        var props = TestProps.properties("");
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+        List<LocalityGazetteer.Place> places = LocalityGazetteer.parse(AMBIGUOUS_GAZETTEER, List.of("Bengaluru", "Bangalore"), TestProps.safety());
+        LocalityGazetteer.Place srinagar = places.stream().filter(p -> p.name().equals("Srinagar")).findFirst().orElseThrow();
+        LocalityGazetteer.Place koramangala = places.stream().filter(p -> p.name().equals("Koramangala")).findFirst().orElseThrow();
+        Instant now = CLOCK.instant();
+
+        long good = store.insert(new IncidentStore.NewIncident(CrimeType.ROBBERY, "Techie robbed at knifepoint in Koramangala",
+                koramangala.name(), koramangala.key(), koramangala.name(), koramangala.center(), 1200, LocalDate.of(2026, 10, 1),
+                "Techie robbed at knifepoint in Koramangala"), new Incident.Source("https://news.test/ok", "t", "news.test", null), now);
+        store.insert(new IncidentStore.NewIncident(CrimeType.MURDER, "Guest worker murdered in drunken brawl in Coimbatore",
+                srinagar.name(), srinagar.key(), srinagar.name(), srinagar.center(), 1200, LocalDate.of(2026, 10, 2),
+                "Guest worker murdered in drunken brawl in Coimbatore | Coimbatore News - Edition IN Srinagar Varanasi"),
+                new Incident.Source("https://news.test/menu", "t", "news.test", null), now);
+        store.insert(new IncidentStore.NewIncident(CrimeType.MURDER, "4 friends killed after SUV crashes into truck",
+                srinagar.name(), srinagar.key(), srinagar.name(), srinagar.center(), 1200, LocalDate.of(2026, 10, 3),
+                "4 friends killed after SUV crashes into truck"), new Incident.Source("https://news.test/crash", "t", "news.test", null), now);
+        store.markProcessed("https://news.test/menu", "accepted", now);
+
+        BackfillService service = new BackfillService(new GdeltClient(http, props), new LocalityGazetteer(http, props), http, store, props, CLOCK);
+        BackfillService.RecheckResult result = service.recheck();
+
+        assertEquals(3, result.checked());
+        assertEquals(1, result.kept());
+        assertEquals(List.of(good), store.findSince(LocalDate.of(2000, 1, 1)).stream().map(Incident::id).toList());
+        assertTrue(!store.wasProcessed("https://news.test/menu"), "removed articles are read again by the next load");
+    }
+
+    @Test
+    void backfillRetriesWhenGdeltThrottles() {
+        AtomicInteger gdeltCalls = new AtomicInteger();
+        FakeHttp http = new FakeHttp((String url, String body) -> {
+            if (url.startsWith("https://overpass.test")) return FakeHttp.json(GAZETTEER);
+            if (url.startsWith("https://gdelt.test")) {
+                if (gdeltCalls.incrementAndGet() == 1) return FakeHttp.status(429);
+                if (url.contains("theft")) return FakeHttp.json("");
+                return FakeHttp.json(gdelt(row("https://news.test/r", "Techie robbed at knifepoint in Koramangala", "20261005T080000Z")));
+            }
+            return FakeHttp.status(404);
+        });
+        var props = TestProps.properties("");
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+        BackfillService service = new BackfillService(new GdeltClient(http, props), new LocalityGazetteer(http, props), http, store, props, CLOCK);
+        service.retryDelay = Duration.ZERO;
+
+        service.run(LocalDateTime.of(2026, 9, 24, 10, 0), LocalDateTime.of(2026, 10, 9, 10, 0));
+        assertEquals("done", service.status().state());
+        assertEquals(1, service.status().accepted());
+        assertEquals(3, gdeltCalls.get());
     }
 }

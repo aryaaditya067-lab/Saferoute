@@ -76,6 +76,13 @@ public class AdminController {
         return backfill.status();
     }
 
+    /** Re-applies the current placement rules to stored reports and removes those that fail. Requires X-Admin-Token. */
+    @PostMapping("/api/v1/admin/recheck")
+    public BackfillService.RecheckResult recheck(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
+        checkToken(token);
+        return backfill.recheck();
+    }
+
     /** Runs one ingest now. Requires the X-Admin-Token header. */
     @PostMapping("/api/v1/admin/ingest")
     public Object runIngest(@RequestHeader(value = "X-Admin-Token", required = false) String token) {

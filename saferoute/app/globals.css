@@ -239,27 +239,6 @@ body {
   .saferoute-map .saferoute-locate button[aria-busy="true"] svg { animation-duration: 3s; }
 }
 
-.sr-incident {
-  width: 30px;
-  height: 38px;
-  cursor: pointer;
-  filter: drop-shadow(0 3px 4px rgb(120 20 20 / 0.35));
-  transition: transform 150ms ease-out;
-  transform-origin: 50% 100%;
-}
-
-.sr-incident:hover {
-  transform: scale(1.12);
-}
-
-.sr-incident svg {
-  display: block;
-}
-
-.sr-hotspot-core {
-  filter: blur(6px);
-}
-
 .sr-community {
   width: 28px;
   height: 28px;
@@ -308,18 +287,6 @@ body {
   padding-left: 8px;
   border-left: 2px solid var(--color-line-strong);
   color: var(--color-ink-soft);
-  font-size: 12px;
-}
-
-.sr-incident-sources {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-}
-
-.sr-incident-sources a {
-  color: var(--color-brand-strong);
-  font-weight: 500;
   font-size: 12px;
 }
 
@@ -502,21 +469,177 @@ html:has(.sr-about) body {
   .sr-panel-in, .sr-stagger > *, .sr-float-in { animation: none; }
 }
 
-/* Numbered bubble for a reported-crime area when the map is zoomed out. */
-.sr-hot {
+/* ---- Reported crimes: heat zones, clustered dots, detail cards ---------------- */
+
+.saferoute-map .leaflet-heatmap-layer {
+  /* Visual only: clicks go to the zone areas, routes and map underneath. */
+  pointer-events: none;
+  transition: opacity 420ms ease;
+  opacity: 0.85;
+}
+.saferoute-map[data-crime-level="points"] .leaflet-heatmap-layer { opacity: 0.38; }
+.saferoute-map[data-crime-level="street"] .leaflet-heatmap-layer { opacity: 0.2; }
+
+.sr-zone-hit { cursor: pointer; transition: fill-opacity 160ms ease; }
+.sr-zone-hit:hover { fill-opacity: 0.06; }
+
+@keyframes sr-crime-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* 36px touch target around a 14px dot. */
+.sr-crime-dot {
+  position: relative;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: sr-crime-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+}
+.sr-crime-dot::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #dc2626;
+  border: 2px solid #fffdf8;
+  box-shadow: 0 1px 4px rgb(120 20 20 / 0.45);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.sr-crime-dot:hover::before { transform: scale(1.25); }
+.is-active .sr-crime-dot::before {
+  transform: scale(1.45);
+  box-shadow: 0 0 0 6px rgb(220 38 38 / 0.25), 0 0 0 12px rgb(220 38 38 / 0.12), 0 2px 6px rgb(120 20 20 / 0.5);
+}
+
+.sr-crime-cluster {
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 30%, #f26b6b, #d93636);
   color: #fff;
-  font: 700 11px/1 var(--font-sans);
+  font: 700 12px/1 var(--font-sans);
   border: 2px solid #fffdf8;
-  box-shadow: 0 0 0 4px rgb(229 72 77 / 0.18), 0 4px 10px rgb(150 30 30 / 0.35);
   cursor: pointer;
+  animation: sr-crime-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
   transition: transform 160ms ease;
 }
-.sr-hot:hover { transform: scale(1.12); }
+.sr-crime-cluster:hover { transform: scale(1.08); }
+.sr-crime-cluster.is-low { background: radial-gradient(circle at 35% 30%, #ff9a5c, #f2542d); box-shadow: 0 0 0 5px rgb(242 84 45 / 0.2), 0 3px 8px rgb(150 50 20 / 0.35); }
+.sr-crime-cluster.is-mid { background: radial-gradient(circle at 35% 30%, #f87171, #dc2626); box-shadow: 0 0 0 6px rgb(220 38 38 / 0.2), 0 3px 9px rgb(150 30 30 / 0.4); }
+.sr-crime-cluster.is-high { background: radial-gradient(circle at 35% 30%, #ef4444, #b91c1c); box-shadow: 0 0 0 7px rgb(185 28 28 / 0.22), 0 4px 10px rgb(120 20 20 / 0.45); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sr-crime-dot, .sr-crime-cluster { animation: none; }
+  .saferoute-map .leaflet-heatmap-layer { transition: none; }
+}
+
+.saferoute-map .sr-crime-popup .leaflet-popup-content-wrapper {
+  border-radius: 18px;
+  padding: 0;
+  background: rgb(255 253 248 / 0.96);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  backdrop-filter: saturate(160%) blur(16px);
+  box-shadow: 0 18px 40px -12px rgb(36 35 33 / 0.35), 0 0 0 0.5px rgb(0 0 0 / 0.08);
+}
+.saferoute-map .sr-crime-popup .leaflet-popup-content { margin: 14px 16px 12px; }
+.saferoute-map .sr-crime-popup .leaflet-popup-close-button { top: 10px !important; right: 10px !important; }
+
+.sr-crime-card { display: flex; flex-direction: column; gap: 8px; }
+.sr-crime-card__head { display: flex; align-items: center; gap: 10px; padding-right: 18px; }
+.sr-crime-card__badge {
+  display: flex;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  color: #dc2626;
+  background: #fde8e8;
+}
+.sr-zone-card.is-moderate .sr-crime-card__badge { color: #ea580c; background: #ffedd5; }
+.sr-zone-card.is-low .sr-crime-card__badge { color: #d97706; background: #fef3c7; }
+.sr-crime-card__titles { flex: 1; min-width: 0; }
+.sr-crime-card__title { font-size: 15px; font-weight: 700; color: var(--color-ink); line-height: 1.2; }
+.sr-crime-card__sub { font-size: 11.5px; color: var(--color-ink-muted); margin-top: 1px; }
+.sr-crime-card__pill {
+  flex: none;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b42318;
+  background: #fdecec;
+  white-space: nowrap;
+}
+.sr-crime-card__facts { display: flex; flex-direction: column; gap: 3px; margin: 0; font-size: 12.5px; }
+.sr-crime-card__row { display: flex; gap: 6px; }
+.sr-crime-card__row dt { flex: none; width: 86px; color: var(--color-ink-muted); }
+.sr-crime-card__row dd { margin: 0; color: var(--color-ink); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.sr-crime-card__source { color: #2563eb; text-decoration: none; }
+.sr-crime-card__source:hover { text-decoration: underline; }
+.sr-crime-card__desc { margin: 0; font-size: 13px; line-height: 1.45; color: var(--color-ink); }
+.sr-crime-card__quote {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--color-line-strong);
+  color: var(--color-ink-soft);
+  font-size: 12px;
+}
+.sr-crime-card__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 12px;
+  border: 0;
+  padding: 0 12px;
+  font: 600 13px/1 var(--font-sans);
+  color: #fff !important;
+  background: var(--color-brand);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.sr-crime-card__cta:hover { background: var(--color-brand-strong); }
+.sr-crime-card__more { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--color-ink-muted); }
+.sr-crime-card__more a { color: #2563eb; }
+.sr-crime-card__note { font-size: 11px; color: var(--color-ink-muted); }
+
+.sr-crime-legend {
+  min-width: 150px;
+  border-radius: 14px;
+  padding: 8px 12px;
+  background: rgb(255 255 255 / 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 0.5px solid rgb(0 0 0 / 0.08);
+  box-shadow: 0 4px 14px rgb(36 35 33 / 0.12);
+  font-size: 12px;
+  color: var(--color-ink);
+}
+.sr-crime-legend[hidden] { display: none; }
+/* Map chrome steps aside while a crime card is open (controls sit above the popup pane). */
+.sr-crime-legend,
+.saferoute-map .leaflet-bottom.leaflet-right .leaflet-control { transition: opacity 160ms ease; }
+.saferoute-map:has(.sr-crime-popup) .sr-crime-legend { opacity: 0; pointer-events: none; }
+@media (max-width: 767px) {
+  .saferoute-map:has(.sr-crime-popup) .leaflet-bottom.leaflet-right .leaflet-control { opacity: 0; pointer-events: none; }
+}
+.sr-crime-legend__title { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12.5px; }
+.sr-crime-legend__bar {
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffe2a1, #ffb45e, #ff8a3d, #f2542d, #c81e1e);
+}
+.sr-crime-legend__scale { display: flex; justify-content: space-between; margin-top: 3px; font-size: 11px; color: var(--color-ink-muted); }
+.sr-crime-legend__dot { width: 11px; height: 11px; border-radius: 999px; background: #dc2626; border: 2px solid #fffdf8; box-shadow: 0 0 0 1px rgb(220 38 38 / 0.4); }
+.sr-crime-legend__hint { margin-top: 2px; font-size: 11px; color: var(--color-ink-muted); }
 
 /* ---- Map app: Apple-style materials ------------------------------------------- */
 

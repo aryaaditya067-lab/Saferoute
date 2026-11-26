@@ -56,6 +56,14 @@ public class InMemoryIncidentStore implements IncidentStore {
     }
 
     @Override
+    public void forget(long incidentId) {
+        incidents.stream().filter(s -> s.id() == incidentId).findFirst().ifPresent(s -> {
+            s.sources().forEach(src -> processed.remove(src.url()));
+            incidents.remove(s);
+        });
+    }
+
+    @Override
     public List<Incident> findInBox(BBox box, LocalDate since) {
         return findSince(since).stream().filter(i -> box.contains(i.center())).toList();
     }

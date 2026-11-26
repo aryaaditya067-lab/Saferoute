@@ -19,7 +19,7 @@ export function CrimeLayerToggle({ layer, visible, onToggle, onRetry }: CrimeLay
       dotClass="bg-[#DC2626]"
       status={layer.status}
       count={layer.incidents.length}
-      emptyText={layer.status === "ready" && !layer.dataAvailable ? "None collected yet" : null}
+      emptyText={layer.status === "ready" && !layer.dataAvailable && layer.incidents.length === 0 ? "None collected yet" : null}
       title={[layer.sourceNote, layer.windowDays ? `Last ${layer.windowDays} days.` : null].filter(Boolean).join(" ") || "Reported crimes"}
       error={layer.error}
       visible={visible}

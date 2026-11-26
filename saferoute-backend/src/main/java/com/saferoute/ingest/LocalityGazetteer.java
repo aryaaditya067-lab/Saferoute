@@ -7,8 +7,11 @@ import com.saferoute.common.Json;
 import com.saferoute.config.SafeRouteProperties;
 import com.saferoute.geo.BBox;
 import com.saferoute.geo.LatLng;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,6 +21,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,18 +41,40 @@ public class LocalityGazetteer {
             "market", "colony", "layout", "nagar", "extension", "stage", "phase", "block", "city", "town", "station",
             "main road", "cross", "circle", "east", "west", "north", "south", "central", "new", "old");
 
+    private static final Logger log = LoggerFactory.getLogger(LocalityGazetteer.class);
+
     private final HttpFetcher http;
     private final SafeRouteProperties properties;
+    /** Saved Overpass answer; neighbourhood names rarely change and Overpass is often overloaded. */
+    private final Path cacheFile;
     private volatile List<Place> places;
 
     public LocalityGazetteer(HttpFetcher http, SafeRouteProperties properties) {
-        this.http = http;
-        this.properties = properties;
+        this(http, properties, null);
     }
 
-    /** Loads the gazetteer once (Overpass), then serves it from memory. */
+    @Autowired
+    public LocalityGazetteer(HttpFetcher http, SafeRouteProperties properties,
+                             @Value("${saferoute.backfill.localities-file:./data/localities.json}") String cacheFile) {
+        this.http = http;
+        this.properties = properties;
+        this.cacheFile = cacheFile == null || cacheFile.isBlank() ? null : Path.of(cacheFile);
+    }
+
+    /** Loads the gazetteer once (saved file, else Overpass), then serves it from memory. */
     public synchronized List<Place> places() {
         if (places != null) return places;
+        if (cacheFile != null && Files.isRegularFile(cacheFile)) {
+            try {
+                List<Place> cached = parse(Files.readString(cacheFile), properties.city().aliases(), properties.safety());
+                if (!cached.isEmpty()) {
+                    places = cached;
+                    return places;
+                }
+            } catch (IOException | ApiException e) {
+                log.warn("Ignoring unreadable locality file {}: {}", cacheFile, e.getMessage());
+            }
+        }
         SafeRouteProperties.BBoxConfig b = properties.city().bbox();
         String box = String.format(Locale.ROOT, "%.4f,%.4f,%.4f,%.4f", b.south(), b.west(), b.north(), b.east());
         String query = "[out:json][timeout:90];nwr[\"place\"~\"^(suburb|neighbourhood|quarter|locality|village)$\"](" + box + ");out center tags;";
@@ -61,6 +90,7 @@ public class LocalityGazetteer {
                         Duration.ofSeconds(120), 32 * 1024 * 1024);
                 if (r.ok()) {
                     places = parse(r.body(), properties.city().aliases(), properties.safety());
+                    saveCache(r.body());
                     return places;
                 }
                 last = new ApiException(ApiException.Code.UPSTREAM_UNAVAILABLE, "Couldn't load locality names (HTTP " + r.status() + ").");
@@ -69,6 +99,17 @@ public class LocalityGazetteer {
             }
         }
         throw last != null ? last : new ApiException(ApiException.Code.UPSTREAM_UNAVAILABLE, "Couldn't load locality names.");
+    }
+
+    private void saveCache(String body) {
+        if (cacheFile == null || places.isEmpty()) return;
+        try {
+            Path parent = cacheFile.toAbsolutePath().getParent();
+            if (parent != null) Files.createDirectories(parent);
+            Files.writeString(cacheFile, body);
+        } catch (IOException e) {
+            log.warn("Couldn't save locality file {}: {}", cacheFile, e.getMessage());
+        }
     }
 
     static List<Place> parse(String body, List<String> cityAliases, SafeRouteProperties.Safety safety) {
