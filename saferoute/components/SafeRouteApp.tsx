@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, LogOut, MapPinned, MessageSquarePlus, User, WifiOff, X } from "lucide-react";
+import { Info, LogOut, MapPinned, MessageSquarePlus, Moon, Sun, User, WifiOff, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -78,6 +78,7 @@ export function SafeRouteApp() {
   const [showCrimes, setShowCrimes] = useState(true);
   const communityLayer = useCommunitySpots();
   const [showCommunity, setShowCommunity] = useState(true);
+  const [nightMode, setNightMode] = useState(false);
   const [reportAt, setReportAt] = useState<{ point: Coordinates; label: string | null } | null>(null);
   const online = useOnlineStatus();
   const savedPlaces = useSyncExternalStore(subscribeSavedPlaces, getSavedPlacesSnapshot, getSavedPlacesServerSnapshot);
@@ -423,6 +424,7 @@ export function SafeRouteApp() {
         communitySpots={showCommunity ? communityLayer.spots : []}
         communityConfirmThreshold={communityLayer.confirmThreshold ?? 3}
         stations={routeState.status === "success" ? (routeState.response.transit?.stations ?? undefined) : undefined}
+        nightMode={nightMode}
         onReportAt={communityLayer.enabled ? openReport : undefined}
         onSelectRoute={setSelectedRouteId}
         onPick={handlePick}
@@ -474,54 +476,65 @@ export function SafeRouteApp() {
         </div>
       </header>
 
-      {crimeLayer.enabled && (
-        <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(17rem,calc(100vw-1.5rem))] flex-col items-end gap-2 md:top-4 md:right-4 md:w-80 md:items-stretch">
-          <MapLayers activeCount={(showCrimes ? 1 : 0) + (communityLayer.enabled && showCommunity ? 1 : 0)}>
+      <div className="sr-float-in pointer-events-none fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-[1100] flex w-[min(17rem,calc(100vw-1.5rem))] flex-col items-end gap-2 md:top-4 md:right-4 md:w-80 md:items-stretch">
+        <MapLayers activeCount={(showCrimes ? 1 : 0) + (communityLayer.enabled && showCommunity ? 1 : 0)}>
+          {crimeLayer.enabled && (
             <CrimeLayerToggle
               layer={crimeLayer}
               visible={showCrimes}
               onToggle={() => setShowCrimes((v) => !v)}
               onRetry={crimeLayer.retry}
             />
-            {communityLayer.enabled && (
-              <LayerToggle
-                label="Community reports"
-                shortLabel="Community"
-                dotClass="bg-[#7c3aed]"
-                status={communityLayer.status}
-                count={communityLayer.spots.length}
-                title={communityLayer.note ?? "Community reports"}
-                error={communityLayer.error}
-                visible={showCommunity}
-                onToggle={() => setShowCommunity((v) => !v)}
-                onRetry={communityLayer.refresh}
-              />
-            )}
-          </MapLayers>
-          {communityLayer.enabled && (
-            <button
-              type="button"
-              onClick={() => (pickTarget?.kind === "report" ? cancelPick() : startPick({ kind: "report" }))}
-              aria-pressed={pickTarget?.kind === "report"}
-              className={`pointer-events-auto inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-[14px] font-semibold shadow-control transition-[background-color,transform] duration-150 active:scale-[0.98] md:h-11 md:text-[15px] ${
-                pickTarget?.kind === "report" ? "bg-ink text-white" : "sr-glass text-ink hover:bg-white"
-              }`}
-            >
-              {pickTarget?.kind === "report" ? (
-                <>
-                  <X className="size-4" aria-hidden="true" /> Cancel report
-                </>
-              ) : (
-                <>
-                  <MessageSquarePlus className="size-4 text-[#7c3aed]" aria-hidden="true" />
-                  <span className="sm:hidden">Report</span>
-                  <span className="hidden sm:inline">Report a safety issue</span>
-                </>
-              )}
-            </button>
           )}
-        </div>
-      )}
+          {communityLayer.enabled && (
+            <LayerToggle
+              label="Community reports"
+              shortLabel="Community"
+              dotClass="bg-[#7c3aed]"
+              status={communityLayer.status}
+              count={communityLayer.spots.length}
+              title={communityLayer.note ?? "Community reports"}
+              error={communityLayer.error}
+              visible={showCommunity}
+              onToggle={() => setShowCommunity((v) => !v)}
+              onRetry={communityLayer.refresh}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setNightMode((v) => !v)}
+            className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-semibold transition-colors ${
+              nightMode ? "bg-ink text-white" : "text-ink hover:bg-cream"
+            }`}
+          >
+            {nightMode ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4 text-ink-soft" aria-hidden="true" />}
+            <span className="flex-1 text-left">{nightMode ? "Day mode" : "Night mode"}</span>
+            <span className={`inline-block size-2 rounded-full ${nightMode ? "bg-[#fbbf24]" : "bg-[#6366f1]"}`} />
+          </button>
+        </MapLayers>
+        {communityLayer.enabled && (
+          <button
+            type="button"
+            onClick={() => (pickTarget?.kind === "report" ? cancelPick() : startPick({ kind: "report" }))}
+            aria-pressed={pickTarget?.kind === "report"}
+            className={`pointer-events-auto inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-[14px] font-semibold shadow-control transition-[background-color,transform] duration-150 active:scale-[0.98] md:h-11 md:text-[15px] ${
+              pickTarget?.kind === "report" ? "bg-ink text-white" : "sr-glass text-ink hover:bg-white"
+            }`}
+          >
+            {pickTarget?.kind === "report" ? (
+              <>
+                <X className="size-4" aria-hidden="true" /> Cancel report
+              </>
+            ) : (
+              <>
+                <MessageSquarePlus className="size-4 text-[#7c3aed]" aria-hidden="true" />
+                <span className="sm:hidden">Report</span>
+                <span className="hidden sm:inline">Report a safety issue</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
 
       <div
         className="pointer-events-none fixed inset-x-3 top-[calc(max(0.75rem,env(safe-area-inset-top))+7rem)] z-[1200] flex flex-col items-center gap-2 md:top-4 md:right-[352px] md:left-[432px]"

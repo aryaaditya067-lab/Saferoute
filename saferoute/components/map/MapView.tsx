@@ -45,6 +45,8 @@ export interface MapViewProps {
   communityConfirmThreshold: number;
   /** Metro stations to show (walking trips). */
   stations?: TransitStation[];
+  /** Dark tile layer (CartoDB dark matter). */
+  nightMode?: boolean;
   /** Present when community reporting is available. */
   onReportAt?: (point: Coordinates) => void;
   onSelectRoute: (id: string) => void;
@@ -385,6 +387,17 @@ export default function MapView(props: MapViewProps) {
       locateControlRef.current = null;
     };
   }, []);
+
+  // ---- Night mode: CSS invert on tile pane ------------------------------------
+  useEffect(() => {
+    const pane = mapRef.current?.getPane("tilePane");
+    if (!pane) return;
+    if (props.nightMode) {
+      pane.style.filter = "invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.2)";
+    } else {
+      pane.style.filter = "";
+    }
+  }, [props.nightMode]);
 
   // ---- Pick mode cursor ------------------------------------------------------
   const picking = props.pickTarget !== null;
