@@ -102,10 +102,12 @@ public class RouteSafetyService {
         List<RouteCandidate> candidates = new ArrayList<>(osrm.route(List.of(pickup, destination), mode, true));
         RouteCandidate fastest = candidates.stream().min(Comparator.comparingDouble(RouteCandidate::durationSeconds)).orElseThrow();
 
-        // Crime data counts as available only if an ingest has succeeded and the trip is inside the covered city.
-        var lastIngest = store.lastSuccessfulRun();
-        boolean crimeAvailable = lastIngest.isPresent() && cityBox.contains(pickup) && cityBox.contains(destination);
-        List<Incident> incidents = crimeAvailable ? store.findSince(today.minusDays(safety.incidentWindowDays())) : null;
+        // Crime data counts inside the covered city once reports exist, or once an ingest has finished
+        // (then an empty result really means nothing was reported). A long history load in progress
+        // must not switch off the reports already stored.
+        boolean inCity = cityBox.contains(pickup) && cityBox.contains(destination);
+        List<Incident> stored = inCity ? store.findSince(today.minusDays(safety.incidentWindowDays())) : List.of();
+        List<Incident> incidents = inCity && (!stored.isEmpty() || store.lastSuccessfulRun().isPresent()) ? stored : null;
 
         // On foot, a longer but better-lit walk is worth more than in a car.
         double maxDuration = fastest.durationSeconds() * (mode == TravelMode.WALKING ? Math.max(2.0, safety.maxDetourFactor()) : safety.maxDetourFactor());
@@ -162,11 +164,11 @@ public class RouteSafetyService {
             candidates = new ArrayList<>(ordered.subList(0, MAX_CANDIDATES));
         }
 
-        OsmContext osm = null;
         List<LatLng> all = candidates.stream().flatMap(c -> c.geometry().stream()).toList();
         BBox area = BBox.around(all).expand(safety.serviceRadiusMeters());
+        OsmContext osm = overpass.fromSnapshot(candidates.stream().map(RouteCandidate::geometry).toList(), area).orElse(null);
         double left = TOTAL_BUDGET_S - seconds(started);
-        if (area.areaSquareKm() <= MAX_OSM_AREA_KM2 && left >= 6) {
+        if (osm == null && area.areaSquareKm() <= MAX_OSM_AREA_KM2 && left >= 6) {
             try {
                 osm = overpass.fetch(candidates.stream().map(RouteCandidate::geometry).toList(), area,
                         java.time.Duration.ofSeconds((long) Math.min(25, left)));
@@ -216,9 +218,11 @@ public class RouteSafetyService {
         for (SafetyScorer.Factor f : outcome.factorsUsed()) {
             weights.put(factorId(f), SafetyScorer.weight(safety.weights(), f));
         }
+        boolean crimeAvailable = incidents != null;
+        var lastIngest = store.lastSuccessfulRun();
         String crimeNote = crimeAvailable
                 ? IncidentController.SOURCE_NOTE
-                : (lastIngest.isEmpty()
+                : (inCity
                         ? "No crime reports have been collected yet."
                         : "Crime reports are only collected for " + properties.city().name() + ".");
 

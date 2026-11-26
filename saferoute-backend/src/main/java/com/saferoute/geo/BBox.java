@@ -29,6 +29,10 @@ public record BBox(double south, double west, double north, double east) {
         return points.stream().allMatch(this::contains);
     }
 
+    public boolean intersects(BBox o) {
+        return o.south <= north && o.north >= south && o.west <= east && o.east >= west;
+    }
+
     /** Grows the box by roughly {@code meters} on every side. */
     public BBox expand(double meters) {
         double dLat = meters / 111_320d;

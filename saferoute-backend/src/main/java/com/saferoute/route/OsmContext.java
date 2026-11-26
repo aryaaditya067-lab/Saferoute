@@ -4,8 +4,19 @@ import com.saferoute.geo.BBox;
 import com.saferoute.geo.LatLng;
 import java.util.List;
 
-/** OpenStreetMap features along a set of candidate routes. */
-public record OsmContext(List<Road> roads, List<Poi> police, List<Poi> hospitals, List<Poi> activity, List<Station> stations) {
+/**
+ * OpenStreetMap features along a set of candidate routes.
+ *
+ * @param majorRoadsComplete true when {@code roads} holds every main road in the area but only the
+ *                           smaller streets that carry a lit tag (the city snapshot). Routes always run
+ *                           on roads, so a route point near no listed road is on a smaller street.
+ */
+public record OsmContext(List<Road> roads, List<Poi> police, List<Poi> hospitals, List<Poi> activity, List<Station> stations,
+                         boolean majorRoadsComplete) {
+
+    public OsmContext(List<Road> roads, List<Poi> police, List<Poi> hospitals, List<Poi> activity, List<Station> stations) {
+        this(roads, police, hospitals, activity, stations, false);
+    }
 
     public OsmContext(List<Road> roads, List<Poi> police, List<Poi> hospitals, List<Poi> activity) {
         this(roads, police, hospitals, activity, List.of());

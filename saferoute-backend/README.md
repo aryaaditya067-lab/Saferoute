@@ -59,6 +59,16 @@ Each URL is read once, and every incident links to its article. After the load, 
 
 The map shades ~1 km squares by how much crime was reported there; zoom in (level 14+) to see each report.
 
+## Local OpenStreetMap copy for route factors (recommended)
+
+Main roads, street lights, shops/eateries, police stations, hospitals and metro stations come from OpenStreetMap. Without a local copy they are fetched live from the public Overpass servers on every route search, and when those are busy (often) the five factors silently drop out. Download the city once (about 23 MB, saved to `./data/osm/`):
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8080/api/v1/admin/osm-snapshot -Headers @{ "X-Admin-Token" = $env:SAFEROUTE_ADMIN_TOKEN }
+```
+
+It can take a few minutes and may need a retry when every Overpass server is at capacity; the old copy stays in use until a new one has downloaded and parsed. Run it again now and then to pick up map edits.
+
 ## Night-time brightness from NASA (optional)
 
 NASA's Black Marble satellite product (VNP46A4, yearly, ~500 m squares) measures how bright each part of the city is at night. With it, routes through the city's darkest third count as less safe.

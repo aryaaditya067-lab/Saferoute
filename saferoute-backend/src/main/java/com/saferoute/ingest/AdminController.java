@@ -3,6 +3,7 @@ package com.saferoute.ingest;
 import com.saferoute.common.ApiException;
 import com.saferoute.config.SafeRouteProperties;
 import com.saferoute.incident.IncidentStore;
+import com.saferoute.route.OverpassClient;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -24,9 +25,11 @@ public class AdminController {
     private final MimoClient mimo;
     private final SafeRouteProperties properties;
     private final Clock clock;
+    private final OverpassClient overpass;
 
     public AdminController(IncidentIngestService ingest, BackfillService backfill, IncidentStore store, MimoClient mimo,
-                           SafeRouteProperties properties, Clock clock) {
+                           SafeRouteProperties properties, Clock clock, OverpassClient overpass) {
+        this.overpass = overpass;
         this.ingest = ingest;
         this.backfill = backfill;
         this.store = store;
@@ -81,6 +84,16 @@ public class AdminController {
     public BackfillService.RecheckResult recheck(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
         checkToken(token);
         return backfill.recheck();
+    }
+
+    /**
+     * Downloads the city's main roads, street-light tags and places from OpenStreetMap (about a
+     * minute) so route factors stop depending on live Overpass queries. Requires X-Admin-Token.
+     */
+    @PostMapping("/api/v1/admin/osm-snapshot")
+    public OverpassClient.SnapshotInfo refreshOsmSnapshot(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
+        checkToken(token);
+        return overpass.refreshSnapshot();
     }
 
     /** Runs one ingest now. Requires the X-Admin-Token header. */

@@ -47,6 +47,16 @@ public class SafetyScorer {
     static final double MIN_ROADS_MATCHED = 0.5;
     /** Night lights are ranked only if satellite data covers at least this share of every route. */
     static final double MIN_NIGHT_LIGHT_COVERED = 0.5;
+    /**
+     * Crime exposure at which the crime term reaches one half (about two recent violent reports
+     * right on the route). A fixed city-wide scale: scaled against the worst candidate instead,
+     * a single news report gave its route the full crime penalty while reports are sparse.
+     */
+    static final double CRIME_HALF_EXPOSURE = 2.0;
+
+    static double crimeTerm(double exposure) {
+        return exposure <= 0 ? 0 : exposure / (exposure + CRIME_HALF_EXPOSURE);
+    }
 
     private final SafeRouteProperties.Safety config;
 
@@ -78,7 +88,7 @@ public class SafetyScorer {
         List<RouteSafety> measured = new ArrayList<>();
         for (RouteCandidate route : candidates) {
             List<LatLng> samples = Geo.resample(route.geometry(), SAMPLE_STEP_METERS);
-            RoadMatch match = osm == null ? null : matchRoads(samples, osm.roads());
+            RoadMatch match = osm == null ? null : matchRoads(samples, osm.roads(), osm.majorRoadsComplete());
             measured.add(new RouteSafety(
                     incidents == null ? RouteSafety.Crime.unavailable() : crime(route.geometry(), incidents, today),
                     spots == null ? RouteSafety.Community.unavailable() : community(route.geometry(), spots),
@@ -110,7 +120,6 @@ public class SafetyScorer {
         if (osm != null && !osm.police().isEmpty()) used.add(Factor.POLICE);
         if (osm != null && !osm.hospitals().isEmpty()) used.add(Factor.HOSPITAL);
 
-        double maxExposure = measured.stream().mapToDouble(s -> s.crime().exposure()).max().orElse(0);
         double maxCommunity = measured.stream().mapToDouble(s -> s.community().exposure()).max().orElse(0);
         double maxActivity = measured.stream().mapToDouble(s -> s.activity().placesPerKm()).max().orElse(0);
         SafeRouteProperties.Weights w = config.weights();
@@ -124,7 +133,7 @@ public class SafetyScorer {
             for (Factor f : used) {
                 double weight = weight(w, f);
                 double term = switch (f) {
-                    case CRIME -> maxExposure > 0 ? s.crime().exposure() / maxExposure : 0;
+                    case CRIME -> crimeTerm(s.crime().exposure());
                     case COMMUNITY -> maxCommunity > 0 ? s.community().exposure() / maxCommunity : 0;
                     // Share of the route in the darkest third, and how dark it is on average.
                     case NIGHT_LIGHT -> 0.5 * s.nightLight().darkFraction() + 0.5 * s.nightLight().meanDarkness();
@@ -255,8 +264,11 @@ public class SafetyScorer {
 
     record RoadMatch(RouteSafety.Lighting lighting, RouteSafety.Roads roads) {}
 
-    /** Matches each route sample to the nearest OSM road within 20 m (lit tag + road class). */
-    static RoadMatch matchRoads(List<LatLng> samples, List<OsmContext.Road> roads) {
+    /**
+     * Matches each route sample to the nearest OSM road within 20 m (lit tag + road class).
+     * With {@code unmatchedIsMinor}, a sample near no listed road counts as a smaller street.
+     */
+    static RoadMatch matchRoads(List<LatLng> samples, List<OsmContext.Road> roads, boolean unmatchedIsMinor) {
         if (samples.isEmpty()) return new RoadMatch(RouteSafety.Lighting.unavailable(), RouteSafety.Roads.unavailable());
         int lit = 0, unlit = 0, major = 0, minor = 0;
         for (LatLng p : samples) {
@@ -270,7 +282,10 @@ public class SafetyScorer {
                     nearest = road;
                 }
             }
-            if (nearest == null) continue;
+            if (nearest == null) {
+                if (unmatchedIsMinor) minor++;
+                continue;
+            }
             if (nearest.major()) major++; else minor++;
             if (Boolean.TRUE.equals(nearest.lit())) lit++;
             else if (Boolean.FALSE.equals(nearest.lit())) unlit++;
