@@ -45,7 +45,7 @@ export interface MapViewProps {
   communityConfirmThreshold: number;
   /** Metro stations to show (walking trips). */
   stations?: TransitStation[];
-  /** Dark tile layer (CartoDB dark matter). */
+  /** Swap to NASA VIIRS night-lights satellite imagery. */
   nightMode?: boolean;
   /** Present when community reporting is available. */
   onReportAt?: (point: Coordinates) => void;
@@ -244,6 +244,7 @@ export default function MapView(props: MapViewProps) {
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const locateControlRef = useRef<LocateControl | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [zoom, setZoom] = useState<number | null>(null);
 
@@ -269,11 +270,7 @@ export default function MapView(props: MapViewProps) {
     });
 
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>');
-    L.tileLayer(config.tileUrl, {
-      maxZoom: 19,
-      attribution: config.tileAttribution,
-      crossOrigin: true,
-    }).addTo(map);
+    // Tile layer is created by the night-mode effect so it can swap sources.
     if (!isBackendConfigured()) {
       map.attributionControl.addAttribution(
         'Search <a href="https://photon.komoot.io" target="_blank" rel="noreferrer">Photon</a> · Routing <a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer">FOSSGIS OSRM</a>',
@@ -388,15 +385,27 @@ export default function MapView(props: MapViewProps) {
     };
   }, []);
 
-  // ---- Night mode: CSS invert on tile pane ------------------------------------
+  // ---- Night mode: swap tiles to NASA VIIRS night-lights imagery --------------
   useEffect(() => {
-    const pane = mapRef.current?.getPane("tilePane");
-    if (!pane) return;
-    if (props.nightMode) {
-      pane.style.filter = "invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.2)";
-    } else {
-      pane.style.filter = "";
+    const map = mapRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
     }
+    const nasaAttribution =
+      'Night imagery &copy; <a href="https://earthobservatory.nasa.gov/features/NightLights" target="_blank" rel="noreferrer">NASA Earth Observatory</a>';
+    if (props.nightMode) {
+      tileLayerRef.current = L.tileLayer(
+        "https://map1.vis.earthdata.nasa.gov/wmts-webmerc/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg",
+        { maxNativeZoom: 8, maxZoom: 19, attribution: nasaAttribution, crossOrigin: true },
+      ).addTo(map);
+    } else {
+      tileLayerRef.current = L.tileLayer(config.tileUrl, {
+        maxZoom: 19, attribution: config.tileAttribution, crossOrigin: true,
+      }).addTo(map);
+    }
+    // Keep tiles under everything else.
+    tileLayerRef.current.setZIndex(-1);
   }, [props.nightMode]);
 
   // ---- Pick mode cursor ------------------------------------------------------
