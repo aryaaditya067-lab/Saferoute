@@ -51,6 +51,16 @@ public final class CrimeClassifier {
         return Optional.empty();
     }
 
+    /** Any crime wording at all, for free-form sentences ("two men snatched a woman's gold chain"). */
+    private static final Pattern CRIME_WORDS = p(
+            "snatch\\w*|stole|stolen|steal\\w*|thie(f|ves)|theft|rob(bed|bery|bers?|bing)?|loot\\w*|murder\\w*|kill(ed|ing|er)|"
+                    + "stabb?(ed|ing)|hacked|assault\\w*|attack(ed|s)?|thrash\\w*|molest\\w*|rape[ds]?|harass\\w*|kidnap\\w*|abduct\\w*|"
+                    + "burgl\\w*|dacoit\\w*|knife|knifepoint|extort\\w*|arrested");
+
+    public static boolean mentionsCrimeLoosely(String text) {
+        return text != null && CRIME_WORDS.matcher(text).find();
+    }
+
     public static boolean mentionsCrime(String text) {
         if (text == null) return false;
         return RULES.values().stream().anyMatch(p -> p.matcher(text).find());

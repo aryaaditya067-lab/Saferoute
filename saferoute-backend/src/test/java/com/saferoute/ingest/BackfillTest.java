@@ -140,6 +140,13 @@ class BackfillTest {
         assertTrue(CrimeClassifier.classify("Two killed after speeding vehicle hits motorcycle on Bommasandra flyover").isEmpty());
         assertTrue(CrimeClassifier.classify("28-year-old scooter rider killed in hit-and-run near Kengeri").isEmpty());
         assertEquals(CrimeType.STABBING, CrimeClassifier.classify("Rapido rider stabbed to death in Koramangala").orElseThrow());
+
+        // Checking AI answers: a missing-person appeal or a bare "the police said" is not a crime report.
+        assertTrue(CrimeClassifier.mentionsCrimeLoosely("Two men on a bike snatched a woman's gold chain near the bus stop"));
+        assertTrue(!CrimeClassifier.mentionsCrimeLoosely("My nephew Aniruddh Ramesh is missing since 15 February, 2026."));
+        assertTrue(!CrimeClassifier.mentionsCrimeLoosely("The incident occurred on May 24 in the Kadugodi area, the police said."));
+        assertTrue(ArticleVerifier.isSocialMedia(java.net.URI.create("https://www.instagram.com/reel/abc/")));
+        assertTrue(!ArticleVerifier.isSocialMedia(java.net.URI.create("https://www.deccanherald.com/india/karnataka/bengaluru/x")));
     }
 
     @Test

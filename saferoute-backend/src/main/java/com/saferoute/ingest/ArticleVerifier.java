@@ -25,7 +25,17 @@ public class ArticleVerifier {
     public enum Rejection {
         INVALID_URL, URL_NOT_FROM_SEARCH, NOT_A_CRIME_REPORT, EXTRACTION_FAILED, UNSUPPORTED_CRIME_TYPE,
         LOCALITY_TOO_VAGUE, QUOTE_TOO_SHORT, FETCH_FAILED, QUOTE_NOT_IN_ARTICLE, LOCALITY_NOT_IN_ARTICLE,
-        CITY_NOT_IN_ARTICLE, DATE_OUT_OF_RANGE
+        CITY_NOT_IN_ARTICLE, DATE_OUT_OF_RANGE, NOT_A_NEWS_SITE
+    }
+
+    /** Posts here are appeals, rumours or reshares, not reporting (the AI web search returns them too). */
+    private static final Set<String> SOCIAL_HOSTS = Set.of("instagram.com", "facebook.com", "fb.com", "x.com", "twitter.com",
+            "youtube.com", "youtu.be", "reddit.com", "threads.net", "linkedin.com", "t.me", "telegram.me", "sharechat.com",
+            "quora.com", "pinterest.com", "tiktok.com");
+
+    static boolean isSocialMedia(URI uri) {
+        String host = uri.getHost().toLowerCase(Locale.ROOT);
+        return SOCIAL_HOSTS.stream().anyMatch(s -> host.equals(s) || host.endsWith("." + s));
     }
 
     public record Verified(
@@ -65,6 +75,7 @@ public class ArticleVerifier {
     public Result verify(NewsCandidate c, Collection<MimoClient.Citation> citations, LocalDate today, int lookbackDays) {
         URI uri = parseHttpUrl(c.url()).orElse(null);
         if (uri == null) return Result.reject(Rejection.INVALID_URL);
+        if (isSocialMedia(uri)) return Result.reject(Rejection.NOT_A_NEWS_SITE);
 
         Map<String, MimoClient.Citation> searchResults = citations.stream()
                 .filter(cit -> parseHttpUrl(cit.url()).isPresent())
@@ -88,6 +99,10 @@ public class ArticleVerifier {
             return Rejection.LOCALITY_TOO_VAGUE;
         }
         if (c.evidenceQuote().trim().length() < 20) return Rejection.QUOTE_TOO_SHORT;
+        // The model's own crime type isn't enough ("missing since February" came back as a kidnapping).
+        if (!CrimeClassifier.mentionsCrimeLoosely(c.evidenceQuote()) && !CrimeClassifier.mentionsCrimeLoosely(c.headline())) {
+            return Rejection.NOT_A_CRIME_REPORT;
+        }
         return null;
     }
 

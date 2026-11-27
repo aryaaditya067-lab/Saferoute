@@ -100,7 +100,7 @@ public class AdminController {
     @PostMapping("/api/v1/admin/ingest")
     public Object runIngest(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
         checkToken(token);
-        if (!properties.ingest().useMimo()) {
+        if (!properties.ingest().useMimo() || !mimo.configured()) {
             if ("running".equals(backfill.status().state())) return backfill.status();
             return backfill.runRecent(14);
         }

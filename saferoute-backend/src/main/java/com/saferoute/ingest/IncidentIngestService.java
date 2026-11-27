@@ -86,13 +86,10 @@ public class IncidentIngestService {
     @Scheduled(fixedDelayString = "${saferoute.ingest.interval}", initialDelayString = "${saferoute.ingest.initial-delay}")
     public void scheduledRun() {
         if (!properties.ingest().enabled()) return;
-        if (!properties.ingest().useMimo()) {
-            // Fast path: keyword rules on the last two weeks of GDELT articles.
+        if (!properties.ingest().useMimo() || !mimo.configured()) {
+            // Keyword rules on the last two weeks of news; also the fallback while no MiMo key is set.
+            if (properties.ingest().useMimo()) log.info("MIMO_API_KEY is not set; using keyword rules for this run.");
             if (!"running".equals(backfill.status().state())) log.info("Crime ingest: {}", backfill.runRecent(14));
-            return;
-        }
-        if (!mimo.configured()) {
-            log.info("Crime ingest skipped: MIMO_API_KEY is not set.");
             return;
         }
         Report report = runOnce();
