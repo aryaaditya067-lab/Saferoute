@@ -2,6 +2,7 @@
 
 import { Check, Copy, ExternalLink, MessageCircle, Phone, Share2, X } from "lucide-react";
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Location, Route } from "@/types";
 
 interface ShareTripProps {
@@ -85,7 +86,8 @@ export function ShareTripButton({ pickup, destination, selectedRoute }: ShareTri
         Share trip
       </button>
 
-      {open && (
+      {/* Portal: the button's floating wrapper is animated/translated, which would trap a fixed overlay inside it. */}
+      {open && createPortal(
         <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-ink/60 backdrop-blur-sm md:items-center">
           <div className="w-full max-w-sm animate-slide-down rounded-t-3xl bg-paper p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-float md:rounded-3xl md:pb-6">
             {/* Header */}
@@ -185,7 +187,8 @@ export function ShareTripButton({ pickup, destination, selectedRoute }: ShareTri
               </span>
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
