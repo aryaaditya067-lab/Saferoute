@@ -20,8 +20,10 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,7 +36,8 @@ import org.springframework.stereotype.Service;
 public class BackfillService {
 
     private static final Logger log = LoggerFactory.getLogger(BackfillService.class);
-    private static final int GDELT_ATTEMPTS = 4;
+    /** With doubling waits capped at 20 x retryDelay: 30 s, 1, 2, 4, 8, 10 min (about 25 min) before a window is skipped. */
+    private static final int GDELT_ATTEMPTS = 7;
 
     public record Progress(
             String state,
@@ -42,6 +45,8 @@ public class BackfillService {
             String finishedAt,
             int windowsDone,
             int windowsTotal,
+            /** Windows GDELT never answered for (left as gaps; a later run fills them). */
+            int windowsSkipped,
             int articlesFound,
             int articlesChecked,
             int accepted,
@@ -53,11 +58,21 @@ public class BackfillService {
             String error) {
 
         static Progress idle() {
-            return new Progress("idle", null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null);
+            return new Progress("idle", null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null);
         }
     }
 
+    /** Google News retries: 30 s, 1 and 2 min. */
+    private static final int GOOGLE_ATTEMPTS = 4;
+    /** GDELT gets one quick retry when Google News is there to fall back on. */
+    private static final int GDELT_ATTEMPTS_WITH_FALLBACK = 2;
+
+    /** A found article; {@code readable} = its link leads to the article itself (not a redirect page). */
+    private record Candidate(MimoClient.Citation citation, boolean readable) {}
+
     private final GdeltClient gdelt;
+    /** Null = GDELT only. */
+    private final GoogleNewsClient googleNews;
     private final LocalityGazetteer gazetteer;
     private final ArticleVerifier fetcher;
     private final IncidentStore store;
@@ -73,7 +88,14 @@ public class BackfillService {
 
     public BackfillService(GdeltClient gdelt, LocalityGazetteer gazetteer, com.saferoute.common.HttpFetcher http,
                            IncidentStore store, SafeRouteProperties properties, Clock clock) {
+        this(gdelt, null, gazetteer, http, store, properties, clock);
+    }
+
+    @Autowired
+    public BackfillService(GdeltClient gdelt, GoogleNewsClient googleNews, LocalityGazetteer gazetteer,
+                           com.saferoute.common.HttpFetcher http, IncidentStore store, SafeRouteProperties properties, Clock clock) {
         this.gdelt = gdelt;
+        this.googleNews = googleNews;
         this.gazetteer = gazetteer;
         this.fetcher = new ArticleVerifier(http, properties.city().aliases());
         this.store = store;
@@ -91,7 +113,7 @@ public class BackfillService {
         int m = Math.max(1, Math.min(60, months));
         LocalDateTime end = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
         LocalDateTime begin = end.minusMonths(m);
-        progress.set(new Progress("running", clock.instant().toString(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null));
+        progress.set(new Progress("running", clock.instant().toString(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null));
         executor.submit(() -> run(begin, end));
         return progress.get();
     }
@@ -99,7 +121,7 @@ public class BackfillService {
     /** Synchronous load of the last {@code days} days (used by the scheduler). */
     public Progress runRecent(int days) {
         LocalDateTime end = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
-        progress.set(new Progress("running", clock.instant().toString(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null));
+        progress.set(new Progress("running", clock.instant().toString(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null));
         run(end.minusDays(days), end);
         return progress.get();
     }
@@ -117,19 +139,48 @@ public class BackfillService {
                 windows.add(new LocalDateTime[] {from, t});
             }
             c.windowsTotal = windows.size();
+            boolean gdeltUp = true;
+            int gdeltAttempts = googleNews == null ? GDELT_ATTEMPTS : GDELT_ATTEMPTS_WITH_FALLBACK;
             for (LocalDateTime[] w : windows) {
-                Map<String, MimoClient.Citation> pages = new LinkedHashMap<>();
-                for (String terms : List.of(GdeltClient.VIOLENT_TERMS, GdeltClient.PROPERTY_TERMS)) {
-                    try {
-                        for (MimoClient.Citation cit : articlesWithRetry(terms, w[0], w[1])) {
-                            ArticleVerifier.parseHttpUrl(cit.url()).ifPresent(u -> pages.putIfAbsent(ArticleVerifier.canonical(u), cit));
+                Map<String, Candidate> pages = new LinkedHashMap<>();
+                boolean answered = false;
+                if (gdeltUp) {
+                    for (String terms : List.of(GdeltClient.VIOLENT_TERMS, GdeltClient.PROPERTY_TERMS)) {
+                        try {
+                            for (MimoClient.Citation cit : withRetry(() -> gdelt.articlesBetween(terms, w[0], w[1]), gdeltAttempts, "GDELT")) {
+                                ArticleVerifier.parseHttpUrl(cit.url())
+                                        .ifPresent(u -> pages.putIfAbsent(ArticleVerifier.canonical(u), new Candidate(cit, true)));
+                            }
+                            answered = true;
+                        } catch (ApiException e) {
+                            log.warn("GDELT {}..{} failed: {}", w[0], w[1], e.getMessage());
+                            if (googleNews != null) {
+                                // Once over its limit GDELT refuses for a long time; don't spend every window waiting.
+                                gdeltUp = false;
+                                log.warn("GDELT is refusing requests; using Google News only for the rest of this run");
+                                break;
+                            }
                         }
-                    } catch (ApiException e) {
-                        log.warn("GDELT window {}..{} failed: {}", w[0], w[1], e.getMessage());
                     }
                 }
+                if (googleNews != null) {
+                    LocalDate from = w[0].toLocalDate();
+                    LocalDate before = w[1].toLocalDate().plusDays(1);
+                    for (String term : GoogleNewsClient.CRIME_TERMS) {
+                        try {
+                            for (MimoClient.Citation cit : withRetry(() -> googleNews.articlesBetween(term, from, before), GOOGLE_ATTEMPTS, "Google News")) {
+                                pages.putIfAbsent(cit.url(), new Candidate(cit, false));
+                            }
+                            answered = true;
+                        } catch (ApiException e) {
+                            log.warn("Google News {}..{} stopped: {}", from, before, e.getMessage());
+                            break;
+                        }
+                    }
+                }
+                if (!answered) c.windowsSkipped++;
                 c.found += pages.size();
-                for (MimoClient.Citation cit : pages.values()) process(cit, places, c);
+                for (Candidate p : pages.values()) process(p.citation(), p.readable(), places, c);
                 c.windowsDone++;
                 publish(c, "running", null);
             }
@@ -173,16 +224,19 @@ public class BackfillService {
         return null;
     }
 
-    /** GDELT throttles bursts with 429s and slow handshakes; wait and retry instead of losing the window. */
-    private List<MimoClient.Citation> articlesWithRetry(String terms, LocalDateTime from, LocalDateTime to) {
+    /**
+     * GDELT throttles with 429s and slow handshakes, and keeps refusing for minutes once a client has
+     * gone over its limit; back off with doubling waits instead of losing the window.
+     */
+    private List<MimoClient.Citation> withRetry(Supplier<List<MimoClient.Citation>> call, int attempts, String source) {
         for (int attempt = 1; ; attempt++) {
             try {
-                return gdelt.articlesBetween(terms, from, to);
+                return call.get();
             } catch (ApiException e) {
                 boolean busy = e.code() == ApiException.Code.RATE_LIMITED || e.code() == ApiException.Code.UPSTREAM_TIMEOUT;
-                if (!busy || attempt >= GDELT_ATTEMPTS) throw e;
-                long waitMs = retryDelay.toMillis() * attempt;
-                log.info("GDELT busy ({}); retrying {}..{} in {}s", e.getMessage(), from, to, waitMs / 1000);
+                if (!busy || attempt >= attempts) throw e;
+                long waitMs = Math.min(retryDelay.toMillis() << (attempt - 1), retryDelay.toMillis() * 20);
+                log.info("{} busy ({}); retrying in {}s", source, e.getMessage(), waitMs / 1000);
                 try {
                     Thread.sleep(waitMs);
                 } catch (InterruptedException ie) {
@@ -193,7 +247,7 @@ public class BackfillService {
         }
     }
 
-    private void process(MimoClient.Citation cit, List<LocalityGazetteer.Place> places, Counter c) {
+    private void process(MimoClient.Citation cit, boolean readable, List<LocalityGazetteer.Place> places, Counter c) {
         String url = cit.url();
         if (store.sourceExists(url) || store.wasProcessed(url)) {
             c.known++;
@@ -209,7 +263,7 @@ public class BackfillService {
         }
         Optional<LocalityGazetteer.Place> place = Placement.fromHeadline(title, places);
         String quote = title;
-        if (place.isEmpty() && properties.backfill().fetchArticles()) {
+        if (place.isEmpty() && readable && properties.backfill().fetchArticles()) {
             URI uri = ArticleVerifier.parseHttpUrl(url).orElse(null);
             Optional<String> html = uri == null ? Optional.empty() : fetcher.fetch(uri);
             if (html.isEmpty()) {
@@ -251,11 +305,11 @@ public class BackfillService {
     private void publish(Counter c, String state, String error) {
         Progress old = progress.get();
         progress.set(new Progress(state, old.startedAt(), "running".equals(state) ? null : Instant.now(clock).toString(),
-                c.windowsDone, c.windowsTotal, c.found, c.checked, c.accepted, c.merged, c.known, c.noCrime, c.noLocality,
+                c.windowsDone, c.windowsTotal, c.windowsSkipped, c.found, c.checked, c.accepted, c.merged, c.known, c.noCrime, c.noLocality,
                 c.fetchFailed, error));
     }
 
     private static final class Counter {
-        int windowsDone, windowsTotal, found, checked, accepted, merged, known, noCrime, noLocality, fetchFailed;
+        int windowsDone, windowsTotal, windowsSkipped, found, checked, accepted, merged, known, noCrime, noLocality, fetchFailed;
     }
 }

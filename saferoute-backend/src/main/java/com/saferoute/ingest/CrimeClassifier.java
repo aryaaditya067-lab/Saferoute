@@ -33,6 +33,8 @@ public final class CrimeClassifier {
             "court|sentenc\\w*|convict\\w*|acquit\\w*|verdict|bail|charge ?sheet|years? (ago|after|later)|cyber|online|"
                     + "fraud|scam|cheat\\w*|ponzi|digital arrest|crypto|loan app|dowry|suicide|"
                     + "accident\\w*|crash\\w*|collid\\w*|collision|mishap|overturn\\w*|toppl\\w*|hits? (a |the )?(divider|tree|pole|wall)|"
+                    + "hit[- ]and[- ]run|speeding|run over|mowed down|rams? into|"
+                    + "hits? (a |the |his |her )?(motorcycle|bike|scooter|two[- ]wheeler|pedestrian|car|auto)|"
                     + "statistics|data shows|report says|crime rate|ncrb|minister|assembly|election|opinion|editorial");
 
     private CrimeClassifier() {}

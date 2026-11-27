@@ -1,8 +1,10 @@
 package com.saferoute.ingest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.saferoute.common.ApiException;
 import com.saferoute.incident.CrimeType;
 import com.saferoute.incident.Incident;
 import com.saferoute.incident.IncidentStore;
@@ -135,6 +137,9 @@ class BackfillTest {
 
         assertTrue(CrimeClassifier.classify("4 college friends killed, 2 injured after SUV hits divider, crashes into truck").isEmpty());
         assertTrue(CrimeClassifier.classify("4 killed as bus, truck collide in Periyapatna").isEmpty());
+        assertTrue(CrimeClassifier.classify("Two killed after speeding vehicle hits motorcycle on Bommasandra flyover").isEmpty());
+        assertTrue(CrimeClassifier.classify("28-year-old scooter rider killed in hit-and-run near Kengeri").isEmpty());
+        assertEquals(CrimeType.STABBING, CrimeClassifier.classify("Rapido rider stabbed to death in Koramangala").orElseThrow());
     }
 
     @Test
@@ -191,6 +196,67 @@ class BackfillTest {
         assertTrue(!store.wasProcessed("https://news.test/menu"), "removed articles are read again by the next load");
     }
 
+    static String googleNews(String... items) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\"><channel><title>Google News</title>"
+                + String.join("", items) + "</channel></rss>";
+    }
+
+    static String newsItem(String link, String title, String site, String pubDate) {
+        return "<item><title>" + title + " - " + site + "</title><link>" + link + "</link><pubDate>" + pubDate
+                + "</pubDate><source url=\"https://site.test\">" + site + "</source></item>";
+    }
+
+    @Test
+    void googleNewsFeedIsRead() {
+        List<MimoClient.Citation> items = GoogleNewsClient.parse(googleNews(
+                newsItem("https://news.google.test/rss/articles/abc", "Techie robbed at knifepoint in Koramangala", "The Hindu",
+                        "Thu, 14 Mar 2024 07:00:00 GMT")));
+        assertEquals(1, items.size());
+        assertEquals("Techie robbed at knifepoint in Koramangala", items.get(0).title());
+        assertEquals("The Hindu", items.get(0).siteName());
+        assertEquals("2024-03-14", items.get(0).publishTime());
+        assertThrows(ApiException.class,
+                () -> GoogleNewsClient.parse("<!DOCTYPE x [<!ENTITY e SYSTEM \"file:///etc/passwd\">]><rss>&e;</rss>"),
+                "a feed with a DOCTYPE is refused, never expanded");
+    }
+
+    @Test
+    void googleNewsFillsInWhileGdeltRefuses() {
+        AtomicInteger gdeltCalls = new AtomicInteger();
+        FakeHttp http = new FakeHttp((String url, String body) -> {
+            if (url.startsWith("https://overpass.test")) return FakeHttp.json(GAZETTEER);
+            if (url.startsWith("https://gdelt.test")) {
+                gdeltCalls.incrementAndGet();
+                return FakeHttp.status(429);
+            }
+            if (url.startsWith("https://news.test/rss")) {
+                return FakeHttp.html(googleNews(
+                        newsItem("https://news.google.test/rss/articles/1", "Woman's chain snatched near bus stop in JP Nagar", "The Hindu",
+                                "Mon, 05 Oct 2026 08:00:00 GMT"),
+                        newsItem("https://news.google.test/rss/articles/2", "Two held for theft", "Deccan Herald",
+                                "Sun, 04 Oct 2026 08:00:00 GMT")));
+            }
+            return FakeHttp.status(404);
+        });
+        var props = TestProps.properties("");
+        InMemoryIncidentStore store = new InMemoryIncidentStore();
+        GoogleNewsClient google = new GoogleNewsClient(http, props, "https://news.test/rss", Duration.ZERO);
+        BackfillService service = new BackfillService(new GdeltClient(http, props), google, new LocalityGazetteer(http, props), http, store, props, CLOCK);
+        service.retryDelay = Duration.ZERO;
+
+        service.run(LocalDateTime.of(2026, 9, 24, 10, 0), LocalDateTime.of(2026, 10, 9, 10, 0));
+        BackfillService.Progress p = service.status();
+        assertEquals("done", p.state());
+        assertEquals(0, p.windowsSkipped());
+        assertEquals(1, p.accepted());
+        assertEquals(1, p.noLocality(), "a headline that names no area is skipped: the Google link can't be read");
+        assertEquals(2, gdeltCalls.get(), "GDELT gets one retry, then the run continues without it");
+        Incident chain = store.findSince(LocalDate.of(2026, 1, 1)).get(0);
+        assertEquals("J. P. Nagar", chain.locality());
+        assertEquals(LocalDate.of(2026, 10, 5), chain.occurredOn());
+        assertEquals("The Hindu", chain.sources().get(0).site());
+    }
+
     @Test
     void backfillRetriesWhenGdeltThrottles() {
         AtomicInteger gdeltCalls = new AtomicInteger();
@@ -212,5 +278,6 @@ class BackfillTest {
         assertEquals("done", service.status().state());
         assertEquals(1, service.status().accepted());
         assertEquals(3, gdeltCalls.get());
+        assertEquals(0, service.status().windowsSkipped(), "the throttled window was retried, not skipped");
     }
 }

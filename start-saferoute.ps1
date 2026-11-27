@@ -76,13 +76,18 @@ Write-Host ""
 if (-not $ready) { Write-Host "The backend did not start. Check the backend window for the error." -ForegroundColor Red; Read-Host "Press Enter to close"; exit 1 }
 Write-Host "Backend ready." -ForegroundColor Green
 
-# Load 1 year of crime history once (skipped if already running/done).
+# Load 3 years of crime history, at most once a day: a load cut short by closing the windows
+# resumes next time, and articles already read are skipped quickly.
+$backfillDay = Join-Path $root ".saferoute-backfill-day"
+$today = Get-Date -Format "yyyy-MM-dd"
 try {
     $bf = Invoke-RestMethod "http://localhost:8080/api/v1/admin/backfill" -TimeoutSec 5
     Write-Host "Crime reports stored: $($status.incidentsInWindow)"
-    if ($bf.state -ne "running" -and $status.incidentsInWindow -lt 50) {
-        Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/backfill?months=12" -Headers @{ "X-Admin-Token" = $adminToken } | Out-Null
-        Write-Host "Started loading 1 year of crime reports (runs in the background)." -ForegroundColor Green
+    $lastDay = if (Test-Path $backfillDay) { (Get-Content $backfillDay -Raw).Trim() } else { "" }
+    if ($bf.state -ne "running" -and $lastDay -ne $today) {
+        Invoke-RestMethod -Method Post "http://localhost:8080/api/v1/admin/backfill?months=36" -Headers @{ "X-Admin-Token" = $adminToken } | Out-Null
+        Set-Content -Path $backfillDay -Value $today -NoNewline -Encoding ascii
+        Write-Host "Started loading 3 years of crime reports (runs in the background)." -ForegroundColor Green
     }
 } catch { Write-Host "Skipped the crime data check: $($_.Exception.Message)" }
 
